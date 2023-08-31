@@ -12,55 +12,25 @@ impl Bus {
         }
     }
 
-    pub fn fetch_immediate(&self) -> u8 {
-        1
-    }
-
-    pub fn fetch_zp(&self) -> u8 {
-        1
-    }
-
-    pub fn fetch_zp_x(&self, idx: u8) -> u8 {
-        1
-    }
-
-    pub fn fetch_zp_y(&self, idx: u8) -> u8 {
-        1
-    }
-
-    pub fn fetch_absolute(&self) -> u8 {
-        1
-    }
-
-    pub fn fetch_absolute_x(&self, idx: u8) -> u8 {
-        1
-    }
-
-    pub fn fetch_absolute_y(&self, idx: u8) -> u8 {
-        1
-    }
-
-    pub fn fetch_indirect_x(&self, idx: u8) -> u8 {
-        1
-    }
-
-    pub fn fetch_indirect_y(&self, idx: u8) -> u8 {
-        1
-    }
-
-    pub fn fetch_indirect(&self) -> u8 {
-        1
-    }
-
     pub fn read_u16(&self, address: Addr) -> u16 {
-        1
+        u16::from_le_bytes([self.mem[address as usize], self.mem[address as usize + 1]])
     }
 
     pub fn read_u8(&self, address: Addr) -> u8 {
-        1
+        self.mem[address as usize]
     }
 
-    pub fn write_u8(&self, address: Addr, value: u8) {}
+    pub fn read_i8(&self, address: Addr) -> i8 {
+        self.mem[address as usize] as i8
+    }
 
-    pub fn write_u16(&self, address: Addr, value: u16) {}
+    pub fn write_u8(&mut self, address: Addr, value: u8) {
+        self.mem[address as usize] = value;
+    }
+
+    pub fn write_u16(&mut self, address: Addr, value: u16) {
+        let bytes = value.to_le_bytes();
+        self.mem[address as usize] = bytes[0];
+        self.mem[address as usize + 1] = bytes[1];
+    }
 }
