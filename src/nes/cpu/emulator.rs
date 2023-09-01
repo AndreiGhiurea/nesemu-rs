@@ -13,27 +13,25 @@ impl Emu {
         let carry = cpu.regs.status.contains(ProcessorStatus::CARRY_FLAG);
         let carry: u8 = if carry { 0x1 } else { 0x0 };
 
-        // See if we have signed overflow.
-        let signed_acc = cpu.regs.acc as i8;
-        let (result, overflow) = signed_acc.overflowing_add(op as i8);
-        let (_result, carry_overflow) = result.overflowing_add(carry as i8);
-        let overflow = overflow || carry_overflow;
+        let result: u16 = cpu.regs.acc as u16 + op as u16 + carry as u16;
+        let carry = result > 0xFF;
 
-        // See if we have unsigned overflow.
-        let (result, u_overflow) = cpu.regs.acc.overflowing_add(op);
-        let (result, u_carry_overflow) = result.overflowing_add(carry);
-        let u_overflow = u_overflow || u_carry_overflow;
+        let ops_have_same_sign = (cpu.regs.acc ^ op) & 0x80 == 0x0;
+        let result_has_same_sign = (cpu.regs.acc ^ result as u8) & 0x80 == 0x0;
+
+        // Overflow flag is set if operands have the same sign and the result has a different sign.
+        let overflow = ops_have_same_sign & !result_has_same_sign;
 
         // Overflow flag indicates signed overflow.
         // Carry indicates unsigned overflow.
         cpu.regs
             .status
-            .set_carry_flag(u_overflow)
-            .set_zero_flag(result)
+            .set_carry_flag(carry)
+            .set_zero_flag(result as u8)
             .set_overflow_flag(overflow)
-            .set_negative_flag(result);
+            .set_negative_flag(result as u8);
 
-        cpu.regs.acc = result;
+        cpu.regs.acc = result as u8;
     }
 
     pub fn and(cpu: &mut Cpu, instr: &Instruction) {
@@ -489,30 +487,10 @@ impl Emu {
         let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
         let op = cpu.bus.borrow().read_u8(addr);
 
-        let carry = cpu.regs.status.contains(ProcessorStatus::CARRY_FLAG);
-        let carry: u8 = if carry { 0x1 } else { 0x0 };
+        // Negate bits for the operand and call ADC.
+        cpu.bus.borrow_mut().write_u8(addr, !op);
 
-        // See if we have signed overflow.
-        let signed_acc = cpu.regs.acc as i8;
-        let (result, overflow) = signed_acc.overflowing_sub(op as i8);
-        let (_result, carry_overflow) = result.overflowing_sub(carry as i8);
-        let overflow = overflow || carry_overflow;
-
-        // See if we have unsigned overflow.
-        let (result, u_overflow) = cpu.regs.acc.overflowing_add(op);
-        let (result, u_carry_overflow) = result.overflowing_add(carry);
-        let u_overflow = u_overflow || u_carry_overflow;
-
-        // Carry flag shows unsigned overflow.
-        // Overflow flag shows signed overflow.
-        cpu.regs
-            .status
-            .set_carry_flag(u_overflow)
-            .set_zero_flag(result)
-            .set_overflow_flag(overflow)
-            .set_negative_flag(result);
-
-        cpu.regs.acc = result;
+        Emu::adc(cpu, instr);
     }
 
     pub fn sec(cpu: &mut Cpu, _instr: &Instruction) {
