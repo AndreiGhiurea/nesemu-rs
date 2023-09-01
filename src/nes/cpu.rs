@@ -32,26 +32,86 @@ impl Cpu {
         }
     }
 
+    fn print_adressing(&self, instr: &Instruction) {
+        match instr.mode {
+            AddressingMode::Implied => {
+                print!("{: <28}", " ");
+            }
+            AddressingMode::Accumulator => {
+                print!("{: <28}", "A");
+            }
+            AddressingMode::Relative => {
+                let op = self.bus.borrow().read_i8(self.regs.pc + 1);
+                let mut addr = self.regs.pc + 2;
+                addr = addr.wrapping_add_signed(op as i16);
+                print!("${: <27}", format!("{:02X}", addr));
+            }
+            AddressingMode::Immediate => {
+                let op = self.bus.borrow().read_u8(self.regs.pc + 1);
+                print!("#${: <26}", format!("{:02X}", op));
+            }
+            AddressingMode::ZeroPage => {
+                let op = self.bus.borrow().read_u8(self.regs.pc + 1);
+                print!("${: <27}", format!("{:02X}", op));
+            }
+            AddressingMode::ZeroPageX => {
+                let op = self.bus.borrow().read_u8(self.regs.pc + 1);
+                print!("${: <25},X", format!("{:02X}", op));
+            }
+            AddressingMode::ZeroPageY => {
+                let op = self.bus.borrow().read_u8(self.regs.pc + 1);
+                print!("${: <25},Y", format!("{:02X}", op));
+            }
+            AddressingMode::Absolute => {
+                let addr = self.bus.borrow().read_u16(self.regs.pc + 1);
+                print!("${: <27}", format!("{:04X}", addr));
+            }
+            AddressingMode::AbsoluteX => {
+                let addr = self.bus.borrow().read_u16(self.regs.pc + 1);
+                print!("${: <25},X", format!("{:04X}", addr));
+            }
+            AddressingMode::AbsoluteY => {
+                let addr = self.bus.borrow().read_u16(self.regs.pc + 1);
+                print!("${: <25},Y", format!("{:04X}", addr));
+            }
+            AddressingMode::IndirectX => {
+                let op = self.bus.borrow().read_u8(self.regs.pc + 1);
+                print!("(${: <23},X)", format!("{:02X}", op));
+            }
+            AddressingMode::IndirectY => {
+                let op = self.bus.borrow().read_u8(self.regs.pc + 1);
+                print!("(${: <23},Y)", format!("{:02X}", op));
+            }
+            AddressingMode::Indirect => {
+                let indirect_addr = self.bus.borrow().read_u16(self.regs.pc + 1);
+                let addr = self.bus.borrow().read_u16(indirect_addr);
+                print!("(${: <25})", format!("{:02X}", addr));
+            }
+        }
+    }
+
     fn print_state(&self, instr: &Instruction) {
-        print!("{:#06X} ", self.regs.pc);
+        print!("{:04X}  ", self.regs.pc);
 
         let mut max_length = 3;
         for idx in 0..instr.length {
             print!(
-                "{:#04X} ",
+                "{:02X} ",
                 self.bus.borrow().read_u8(self.regs.pc + idx as u16)
             );
             max_length -= 1;
         }
 
         for _idx in 0..max_length {
-            print!("     ");
+            print!("   ");
             max_length -= 1;
         }
 
-        print!("{:?} ", instr.variant);
+        print!(" {:?} ", instr.variant);
 
-        print!("                      {}\n", self);
+        self.print_adressing(instr);
+
+        print!("{}\n", self);
     }
 
     pub fn execute(&mut self) {
@@ -206,7 +266,7 @@ impl fmt::Display for Cpu {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "A:{:#04X} X:{:#04X} Y:{:#04X} P:{:#04X} SP:{:#04X} PPU:  {}, {} CYC:{}",
+            "A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} PPU:  {}, {} CYC:{}",
             self.regs.acc,
             self.regs.idx_x,
             self.regs.idx_y,
