@@ -105,9 +105,6 @@ impl Cpu {
         res
     }
 
-    ///
-    /// Convert this to resolve_addressing, and use the bus to read write inside the emulation functions
-    ///
     fn resolve_adressing(&self, mode: AddressingMode, _cycles: u8) -> Addr {
         match mode {
             AddressingMode::Implied => 0xFFFF,

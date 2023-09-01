@@ -26,7 +26,7 @@ impl Nes {
     }
 
     pub fn run(&mut self) {
-        self.cartridge.load("nestest.nes");
+        self.cartridge.load("testroms/nestest.nes");
         self.cpu.set_pc(0xC000);
 
         loop {
