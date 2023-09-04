@@ -304,7 +304,7 @@ impl Emu {
     pub fn jsr(cpu: &mut Cpu, instr: &Instruction) {
         let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
 
-        cpu.regs.pc += instr.length as u16 - 1;
+        cpu.regs.pc += instr.length as u16 - 2;
         cpu.stack_push_u16(cpu.regs.pc);
 
         cpu.regs.pc = addr;
@@ -480,7 +480,7 @@ impl Emu {
     }
 
     pub fn rts(cpu: &mut Cpu, _instr: &Instruction) {
-        cpu.regs.pc = cpu.stack_pop_u16();
+        cpu.regs.pc = cpu.stack_pop_u16() + 1;
     }
 
     pub fn sbc(cpu: &mut Cpu, instr: &Instruction) {
