@@ -7,6 +7,7 @@ use cartridge::Cartridge;
 use cpu::Cpu;
 use std::{cell::RefCell, rc::Rc};
 
+#[allow(dead_code)]
 pub struct Nes {
     bus: Rc<RefCell<Bus>>,
     cpu: Cpu,

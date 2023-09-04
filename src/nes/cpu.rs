@@ -190,7 +190,6 @@ impl Cpu {
 
         for _idx in 0..max_length {
             print!("   ");
-            max_length -= 1;
         }
 
         let opcode = self.bus.borrow().read_u8(self.regs.pc);

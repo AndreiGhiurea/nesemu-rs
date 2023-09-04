@@ -94,7 +94,8 @@ const CHR_ROM_BLOCK_SIZE: usize = 0x2000;
 const PLAYCHOICE_INST_ROM_SIZE: usize = 0x2000;
 const _PLAYCHOICE_PROM_SIZE: usize = 0x20;
 
-#[derive(Debug, Default)]
+#[allow(dead_code)]
+#[derive(Default)]
 struct NesImage<'a> {
     header: NesHeader,
     trainer: Option<&'a [u8]>,

@@ -469,7 +469,7 @@ impl Emu {
         }
     }
 
-    pub fn rti(cpu: &mut Cpu, instr: &Instruction) {
+    pub fn rti(cpu: &mut Cpu, _instr: &Instruction) {
         // Returrn from interrupt.
         let flags = cpu.stack_pop_u8();
         cpu.regs.status = ProcessorStatus::from_bits(flags).unwrap();

@@ -22,6 +22,7 @@ pub enum AddressingMode {
     IndirectY,
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug)]
 pub enum InstructionVariant {
     ADC,
