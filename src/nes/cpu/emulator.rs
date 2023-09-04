@@ -592,4 +592,46 @@ impl Emu {
             .set_zero_flag(cpu.regs.acc)
             .set_negative_flag(cpu.regs.acc);
     }
+
+    pub fn lax(cpu: &mut Cpu, instr: &Instruction) {
+        Emu::lda(cpu, instr);
+        Emu::ldx(cpu, instr);
+    }
+
+    pub fn sax(cpu: &mut Cpu, instr: &Instruction) {
+        let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
+        let op = cpu.regs.acc & cpu.regs.idx_x;
+
+        cpu.bus.borrow_mut().write_u8(addr, op);
+    }
+
+    pub fn dcp(cpu: &mut Cpu, instr: &Instruction) {
+        Emu::dec(cpu, instr);
+        Emu::cmp(cpu, instr);
+    }
+
+    pub fn isb(cpu: &mut Cpu, instr: &Instruction) {
+        Emu::inc(cpu, instr);
+        Emu::sbc(cpu, instr);
+    }
+
+    pub fn slo(cpu: &mut Cpu, instr: &Instruction) {
+        Emu::asl(cpu, instr);
+        Emu::ora(cpu, instr);
+    }
+
+    pub fn rla(cpu: &mut Cpu, instr: &Instruction) {
+        Emu::rol(cpu, instr);
+        Emu::and(cpu, instr);
+    }
+
+    pub fn sre(cpu: &mut Cpu, instr: &Instruction) {
+        Emu::lsr(cpu, instr);
+        Emu::eor(cpu, instr);
+    }
+
+    pub fn rra(cpu: &mut Cpu, instr: &Instruction) {
+        Emu::ror(cpu, instr);
+        Emu::adc(cpu, instr);
+    }
 }

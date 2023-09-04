@@ -80,6 +80,15 @@ pub enum InstructionVariant {
     PLP,
     STX,
     STY,
+    // Unofficial opcodes
+    LAX,
+    SAX,
+    DCP,
+    ISB,
+    SLO,
+    RLA,
+    SRE,
+    RRA,
 }
 
 pub struct Instruction {
@@ -303,4 +312,100 @@ pub static INSTRUCTIONS: phf::Map<u8, Instruction> = phf_map! {
     0x84u8 => Instruction{variant: InstructionVariant::STY, mode: AddressingMode::ZeroPage, length: 2, cycles: 3, emu_fn: Emu::sty},
     0x94u8 => Instruction{variant: InstructionVariant::STY, mode: AddressingMode::ZeroPageX, length: 2, cycles: 4, emu_fn: Emu::sty},
     0x8Cu8 => Instruction{variant: InstructionVariant::STY, mode: AddressingMode::Absolute, length: 3, cycles: 4, emu_fn: Emu::sty},
+
+    // Unofficial NOP instructions
+    0x04u8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::ZeroPage, length: 2, cycles: 2, emu_fn: Emu::nop},
+    0x44u8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::ZeroPage, length: 2, cycles: 2, emu_fn: Emu::nop},
+    0x64u8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::ZeroPage, length: 2, cycles: 2, emu_fn: Emu::nop},
+    0x0Cu8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::Absolute, length: 3, cycles: 2, emu_fn: Emu::nop},
+    0x14u8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::ZeroPageX, length: 2, cycles: 2, emu_fn: Emu::nop},
+    0x34u8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::ZeroPageX, length: 2, cycles: 2, emu_fn: Emu::nop},
+    0x54u8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::ZeroPageX, length: 2, cycles: 2, emu_fn: Emu::nop},
+    0x74u8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::ZeroPageX, length: 2, cycles: 2, emu_fn: Emu::nop},
+    0xD4u8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::ZeroPageX, length: 2, cycles: 2, emu_fn: Emu::nop},
+    0xF4u8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::ZeroPageX, length: 2, cycles: 2, emu_fn: Emu::nop},
+    0x80u8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::Immediate, length: 2, cycles: 2, emu_fn: Emu::nop},
+    0x1Cu8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::AbsoluteX, length: 3, cycles: 2, emu_fn: Emu::nop},
+    0x3Cu8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::AbsoluteX, length: 3, cycles: 2, emu_fn: Emu::nop},
+    0x5Cu8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::AbsoluteX, length: 3, cycles: 2, emu_fn: Emu::nop},
+    0x7Cu8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::AbsoluteX, length: 3, cycles: 2, emu_fn: Emu::nop},
+    0xDCu8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::AbsoluteX, length: 3, cycles: 2, emu_fn: Emu::nop},
+    0xFCu8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::AbsoluteX, length: 3, cycles: 2, emu_fn: Emu::nop},
+    0x1Au8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::Implied, length: 1, cycles: 2, emu_fn: Emu::nop},
+    0x3Au8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::Implied, length: 1, cycles: 2, emu_fn: Emu::nop},
+    0x5Au8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::Implied, length: 1, cycles: 2, emu_fn: Emu::nop},
+    0x7Au8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::Implied, length: 1, cycles: 2, emu_fn: Emu::nop},
+    0xDAu8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::Implied, length: 1, cycles: 2, emu_fn: Emu::nop},
+    0xFAu8 => Instruction{variant: InstructionVariant::NOP, mode: AddressingMode::Implied, length: 1, cycles: 2, emu_fn: Emu::nop},
+
+    // Unofficial LAX instruction
+    0xA7u8 => Instruction{variant: InstructionVariant::LAX, mode: AddressingMode::ZeroPage, length: 2, cycles: 3, emu_fn: Emu::lax},
+    0xB7u8 => Instruction{variant: InstructionVariant::LAX, mode: AddressingMode::ZeroPageY, length: 2, cycles: 4, emu_fn: Emu::lax},
+    0xAFu8 => Instruction{variant: InstructionVariant::LAX, mode: AddressingMode::Absolute, length: 3, cycles: 4, emu_fn: Emu::lax},
+    0xBFu8 => Instruction{variant: InstructionVariant::LAX, mode: AddressingMode::AbsoluteY, length: 3, cycles: 4, emu_fn: Emu::lax},
+    0xA3u8 => Instruction{variant: InstructionVariant::LAX, mode: AddressingMode::IndirectX, length: 2, cycles: 6, emu_fn: Emu::lax},
+    0xB3u8 => Instruction{variant: InstructionVariant::LAX, mode: AddressingMode::IndirectY, length: 2, cycles: 5, emu_fn: Emu::lax},
+
+    // Unofficial SAX instruction
+    0x87u8 => Instruction{variant: InstructionVariant::SAX, mode: AddressingMode::ZeroPage, length: 2, cycles: 3, emu_fn: Emu::sax},
+    0x97u8 => Instruction{variant: InstructionVariant::SAX, mode: AddressingMode::ZeroPageY, length: 2, cycles: 4, emu_fn: Emu::sax},
+    0x8Fu8 => Instruction{variant: InstructionVariant::SAX, mode: AddressingMode::Absolute, length: 3, cycles: 4, emu_fn: Emu::sax},
+    0x83u8 => Instruction{variant: InstructionVariant::SAX, mode: AddressingMode::IndirectX, length: 2, cycles: 6, emu_fn: Emu::sax},
+
+    // Unofficial SBC instruction
+    0xEBu8 => Instruction{variant: InstructionVariant::SBC, mode: AddressingMode::Immediate, length: 2, cycles: 2, emu_fn: Emu::sbc},
+
+    // Unofficial DCP instruction
+    0xC7u8 => Instruction{variant: InstructionVariant::DCP, mode: AddressingMode::ZeroPage, length: 2, cycles: 5, emu_fn: Emu::dcp},
+    0xD7u8 => Instruction{variant: InstructionVariant::DCP, mode: AddressingMode::ZeroPageX, length: 2, cycles: 6, emu_fn: Emu::dcp},
+    0xCFu8 => Instruction{variant: InstructionVariant::DCP, mode: AddressingMode::Absolute, length: 3, cycles: 6, emu_fn: Emu::dcp},
+    0xDFu8 => Instruction{variant: InstructionVariant::DCP, mode: AddressingMode::AbsoluteX, length: 3, cycles: 7, emu_fn: Emu::dcp},
+    0xDBu8 => Instruction{variant: InstructionVariant::DCP, mode: AddressingMode::AbsoluteY, length: 3, cycles: 7, emu_fn: Emu::dcp},
+    0xC3u8 => Instruction{variant: InstructionVariant::DCP, mode: AddressingMode::IndirectX, length: 2, cycles: 8, emu_fn: Emu::dcp},
+    0xD3u8 => Instruction{variant: InstructionVariant::DCP, mode: AddressingMode::IndirectY, length: 2, cycles: 8, emu_fn: Emu::dcp},
+
+    // Unofficial ISB instruction
+    0xE7u8 => Instruction{variant: InstructionVariant::ISB, mode: AddressingMode::ZeroPage, length: 2, cycles: 5, emu_fn: Emu::isb},
+    0xF7u8 => Instruction{variant: InstructionVariant::ISB, mode: AddressingMode::ZeroPageX, length: 2, cycles: 6, emu_fn: Emu::isb},
+    0xEFu8 => Instruction{variant: InstructionVariant::ISB, mode: AddressingMode::Absolute, length: 3, cycles: 6, emu_fn: Emu::isb},
+    0xFFu8 => Instruction{variant: InstructionVariant::ISB, mode: AddressingMode::AbsoluteX, length: 3, cycles: 7, emu_fn: Emu::isb},
+    0xFBu8 => Instruction{variant: InstructionVariant::ISB, mode: AddressingMode::AbsoluteY, length: 3, cycles: 7, emu_fn: Emu::isb},
+    0xE3u8 => Instruction{variant: InstructionVariant::ISB, mode: AddressingMode::IndirectX, length: 2, cycles: 8, emu_fn: Emu::isb},
+    0xF3u8 => Instruction{variant: InstructionVariant::ISB, mode: AddressingMode::IndirectY, length: 2, cycles: 8, emu_fn: Emu::isb},
+
+    // Unofficial SLO instruction
+    0x07u8 => Instruction{variant: InstructionVariant::SLO, mode: AddressingMode::ZeroPage, length: 2, cycles: 5, emu_fn: Emu::slo},
+    0x17u8 => Instruction{variant: InstructionVariant::SLO, mode: AddressingMode::ZeroPageX, length: 2, cycles: 6, emu_fn: Emu::slo},
+    0x0Fu8 => Instruction{variant: InstructionVariant::SLO, mode: AddressingMode::Absolute, length: 3, cycles: 6, emu_fn: Emu::slo},
+    0x1Fu8 => Instruction{variant: InstructionVariant::SLO, mode: AddressingMode::AbsoluteX, length: 3, cycles: 7, emu_fn: Emu::slo},
+    0x1Bu8 => Instruction{variant: InstructionVariant::SLO, mode: AddressingMode::AbsoluteY, length: 3, cycles: 7, emu_fn: Emu::slo},
+    0x03u8 => Instruction{variant: InstructionVariant::SLO, mode: AddressingMode::IndirectX, length: 2, cycles: 8, emu_fn: Emu::slo},
+    0x13u8 => Instruction{variant: InstructionVariant::SLO, mode: AddressingMode::IndirectY, length: 2, cycles: 8, emu_fn: Emu::slo},
+
+    // Unofficial RLA instruction
+    0x27u8 => Instruction{variant: InstructionVariant::RLA, mode: AddressingMode::ZeroPage, length: 2, cycles: 5, emu_fn: Emu::rla},
+    0x37u8 => Instruction{variant: InstructionVariant::RLA, mode: AddressingMode::ZeroPageX, length: 2, cycles: 6, emu_fn: Emu::rla},
+    0x2Fu8 => Instruction{variant: InstructionVariant::RLA, mode: AddressingMode::Absolute, length: 3, cycles: 6, emu_fn: Emu::rla},
+    0x3Fu8 => Instruction{variant: InstructionVariant::RLA, mode: AddressingMode::AbsoluteX, length: 3, cycles: 7, emu_fn: Emu::rla},
+    0x3Bu8 => Instruction{variant: InstructionVariant::RLA, mode: AddressingMode::AbsoluteY, length: 3, cycles: 7, emu_fn: Emu::rla},
+    0x23u8 => Instruction{variant: InstructionVariant::RLA, mode: AddressingMode::IndirectX, length: 2, cycles: 8, emu_fn: Emu::rla},
+    0x33u8 => Instruction{variant: InstructionVariant::RLA, mode: AddressingMode::IndirectY, length: 2, cycles: 8, emu_fn: Emu::rla},
+
+    // Unofficial SRE instruction
+    0x47u8 => Instruction{variant: InstructionVariant::SRE, mode: AddressingMode::ZeroPage, length: 2, cycles: 5, emu_fn: Emu::sre},
+    0x57u8 => Instruction{variant: InstructionVariant::SRE, mode: AddressingMode::ZeroPageX, length: 2, cycles: 6, emu_fn: Emu::sre},
+    0x4Fu8 => Instruction{variant: InstructionVariant::SRE, mode: AddressingMode::Absolute, length: 3, cycles: 6, emu_fn: Emu::sre},
+    0x5Fu8 => Instruction{variant: InstructionVariant::SRE, mode: AddressingMode::AbsoluteX, length: 3, cycles: 7, emu_fn: Emu::sre},
+    0x5Bu8 => Instruction{variant: InstructionVariant::SRE, mode: AddressingMode::AbsoluteY, length: 3, cycles: 7, emu_fn: Emu::sre},
+    0x43u8 => Instruction{variant: InstructionVariant::SRE, mode: AddressingMode::IndirectX, length: 2, cycles: 8, emu_fn: Emu::sre},
+    0x53u8 => Instruction{variant: InstructionVariant::SRE, mode: AddressingMode::IndirectY, length: 2, cycles: 8, emu_fn: Emu::sre},
+
+    // Unofficial RRA instruction
+    0x67u8 => Instruction{variant: InstructionVariant::RRA, mode: AddressingMode::ZeroPage, length: 2, cycles: 5, emu_fn: Emu::rra},
+    0x77u8 => Instruction{variant: InstructionVariant::RRA, mode: AddressingMode::ZeroPageX, length: 2, cycles: 6, emu_fn: Emu::rra},
+    0x6Fu8 => Instruction{variant: InstructionVariant::RRA, mode: AddressingMode::Absolute, length: 3, cycles: 6, emu_fn: Emu::rra},
+    0x7Fu8 => Instruction{variant: InstructionVariant::RRA, mode: AddressingMode::AbsoluteX, length: 3, cycles: 7, emu_fn: Emu::rra},
+    0x7Bu8 => Instruction{variant: InstructionVariant::RRA, mode: AddressingMode::AbsoluteY, length: 3, cycles: 7, emu_fn: Emu::rra},
+    0x63u8 => Instruction{variant: InstructionVariant::RRA, mode: AddressingMode::IndirectX, length: 2, cycles: 8, emu_fn: Emu::rra},
+    0x73u8 => Instruction{variant: InstructionVariant::RRA, mode: AddressingMode::IndirectY, length: 2, cycles: 8, emu_fn: Emu::rra},
 };
