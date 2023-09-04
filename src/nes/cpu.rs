@@ -270,15 +270,15 @@ impl fmt::Display for Cpu {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} PPU:  {}, {} CYC:{}",
+            "A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X}", // PPU:  {}, {} CYC:{}",
             self.regs.acc,
             self.regs.idx_x,
             self.regs.idx_y,
             self.regs.status.bits(),
             self.regs.sp,
-            0x00,
-            0x00,
-            self.cycles
+            // 0x00,
+            // 0x00,
+            // self.cycles
         )
     }
 }
