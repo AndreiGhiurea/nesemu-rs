@@ -470,13 +470,15 @@ impl Emu {
     }
 
     pub fn rti(cpu: &mut Cpu, instr: &Instruction) {
-        // Return from interrupt
+        // Returrn from interrupt.
+        let flags = cpu.stack_pop_u8();
+        cpu.regs.status = ProcessorStatus::from_bits(flags).unwrap();
 
         // This instructions discards the B flags, as they're not techincally present in the CPU.
         cpu.regs.status.set(ProcessorStatus::BREAK_CMD, false);
         cpu.regs.status.set(ProcessorStatus::BREAK_CMD2, true);
 
-        panic!("Unimplemented instruction: {:?}", instr.variant);
+        cpu.regs.pc = cpu.stack_pop_u16();
     }
 
     pub fn rts(cpu: &mut Cpu, _instr: &Instruction) {
