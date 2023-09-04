@@ -293,23 +293,25 @@ impl Cpu {
                 addr
             }
             AddressingMode::AbsoluteX => {
-                let mut addr = self.bus.borrow().read_u16(self.regs.pc);
-                addr += self.regs.idx_x as u16;
-                addr
+                let addr = self.bus.borrow().read_u16(self.regs.pc);
+                addr.wrapping_add(self.regs.idx_x as u16)
             }
             AddressingMode::AbsoluteY => {
-                let mut addr = self.bus.borrow().read_u16(self.regs.pc);
-                addr += self.regs.idx_y as u16;
-                addr
+                let addr = self.bus.borrow().read_u16(self.regs.pc);
+                addr.wrapping_add(self.regs.idx_y as u16)
             }
             AddressingMode::IndirectX => {
                 let op = self.bus.borrow().read_u8(self.regs.pc);
-                let addr = self
+                let lb = self
                     .bus
                     .borrow()
-                    .read_u16((op as u16 + self.regs.idx_x as u16) & 0x00FF);
+                    .read_u8((op as Addr + self.regs.idx_x as Addr) & 0x00FF);
+                let hb = self
+                    .bus
+                    .borrow()
+                    .read_u8((op as Addr + self.regs.idx_x as Addr + 0x1) & 0x00FF);
 
-                addr
+                Addr::from_le_bytes([lb, hb])
             }
             AddressingMode::IndirectY => {
                 let op = self.bus.borrow().read_u8(self.regs.pc);
@@ -321,8 +323,29 @@ impl Cpu {
             }
             AddressingMode::Indirect => {
                 let indirect_addr = self.bus.borrow().read_u16(self.regs.pc);
-                let addr = self.bus.borrow().read_u16(indirect_addr);
-                addr
+                let lb: u8;
+                let hb: u8;
+
+                // Note:
+                // An original 6502 has does not correctly fetch the target address
+                // if the indirect address falls on a page boundary (e.g. $xxFF where xx is any value from $00 to $FF).
+                // In this case fetches the LSB from $xxFF as expected but takes the MSB from $xx00.
+                // This is fixed in some later chips like the 65SC02, but for compatibility programs ensure
+                // the indirect vector is not at the end of the page.
+                // We're building a NES emulator so we will emulate the classic 6502 behaviour.
+                if indirect_addr & 0x00FF == 0x00FF {
+                    lb = self.bus.borrow().read_u8(indirect_addr);
+                    hb = self.bus.borrow().read_u8(indirect_addr & 0xFF00);
+                } else {
+                    (lb, hb) = self
+                        .bus
+                        .borrow()
+                        .read_u16(indirect_addr)
+                        .to_le_bytes()
+                        .into();
+                }
+
+                Addr::from_le_bytes([lb, hb])
             }
             _ => {
                 panic!("Cannot resolve addresing for mode {:?}", mode);
