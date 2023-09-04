@@ -198,16 +198,21 @@ impl Cpu {
                 addr
             }
             AddressingMode::IndirectX => {
-                let mut op = self.bus.borrow().read_u8(self.regs.pc);
-                op = op.wrapping_add(self.regs.idx_x);
-                let addr = Addr::from_le_bytes([op, 0x00]);
+                let op = self.bus.borrow().read_u8(self.regs.pc);
+                let addr = self
+                    .bus
+                    .borrow()
+                    .read_u16((op as u16 + self.regs.idx_x as u16) & 0x00FF);
+
                 addr
             }
             AddressingMode::IndirectY => {
                 let op = self.bus.borrow().read_u8(self.regs.pc);
-                let lb = self.bus.borrow().read_u8(Addr::from_le_bytes([op, 0x00]));
-                let addr = Addr::from_le_bytes([lb, self.regs.idx_y]);
-                addr
+                let lb = self.bus.borrow().read_u8(op as Addr);
+                let hb = self.bus.borrow().read_u8((op as Addr + 0x1) & 0x00FF);
+
+                let addr = Addr::from_le_bytes([lb, hb]);
+                addr.wrapping_add(self.regs.idx_y as u16)
             }
             AddressingMode::Indirect => {
                 let indirect_addr = self.bus.borrow().read_u16(self.regs.pc);
