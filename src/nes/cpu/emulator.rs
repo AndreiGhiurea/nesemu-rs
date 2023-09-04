@@ -487,12 +487,32 @@ impl Emu {
 
     pub fn sbc(cpu: &mut Cpu, instr: &Instruction) {
         let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-        let op = cpu.bus.borrow().read_u8(addr);
 
-        // Negate bits for the operand and call ADC.
-        cpu.bus.borrow_mut().write_u8(addr, !op);
+        // Same implementation as ADC but with negated operator.
+        let op = !cpu.bus.borrow().read_u8(addr);
 
-        Emu::adc(cpu, instr);
+        let carry = cpu.regs.status.contains(ProcessorStatus::CARRY_FLAG);
+        let carry: u8 = if carry { 0x1 } else { 0x0 };
+
+        let result: u16 = cpu.regs.acc as u16 + op as u16 + carry as u16;
+        let carry = result > 0xFF;
+
+        let ops_have_same_sign = (cpu.regs.acc ^ op) & 0x80 == 0x0;
+        let result_has_same_sign = (cpu.regs.acc ^ result as u8) & 0x80 == 0x0;
+
+        // Overflow flag is set if operands have the same sign and the result has a different sign.
+        let overflow = ops_have_same_sign & !result_has_same_sign;
+
+        // Overflow flag indicates signed overflow.
+        // Carry indicates unsigned overflow.
+        cpu.regs
+            .status
+            .set_carry_flag(carry)
+            .set_zero_flag(result as u8)
+            .set_overflow_flag(overflow)
+            .set_negative_flag(result as u8);
+
+        cpu.regs.acc = result as u8;
     }
 
     pub fn sec(cpu: &mut Cpu, _instr: &Instruction) {
