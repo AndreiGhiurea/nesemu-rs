@@ -32,7 +32,12 @@ impl Cpu {
         }
     }
 
-    fn print_adressing(&self, instr: &Instruction) {
+    fn print_adressing(&mut self, instr: &Instruction) {
+        let print_operand = !matches!(instr.variant, InstructionVariant::JSR)
+            && !matches!(instr.variant, InstructionVariant::JMP);
+
+        self.regs.pc += 1;
+
         match instr.mode {
             AddressingMode::Implied => {
                 print!("{: <28}", " ");
@@ -41,56 +46,137 @@ impl Cpu {
                 print!("{: <28}", "A");
             }
             AddressingMode::Relative => {
-                let op = self.bus.borrow().read_i8(self.regs.pc + 1);
-                let mut addr = self.regs.pc + 2;
+                let op = self.bus.borrow().read_i8(self.regs.pc);
+                let mut addr = self.regs.pc + 1;
                 addr = addr.wrapping_add_signed(op as i16);
                 print!("${: <27}", format!("{:02X}", addr));
             }
             AddressingMode::Immediate => {
-                let op = self.bus.borrow().read_u8(self.regs.pc + 1);
+                let op = self.bus.borrow().read_u8(self.regs.pc);
                 print!("#${: <26}", format!("{:02X}", op));
             }
             AddressingMode::ZeroPage => {
-                let op = self.bus.borrow().read_u8(self.regs.pc + 1);
-                print!("${: <27}", format!("{:02X}", op));
+                let immediate: u8 = self.bus.borrow().read_u8(self.regs.pc);
+                if print_operand {
+                    let addr = self.resolve_adressing(instr.mode, instr.cycles);
+                    let op = self.bus.borrow().read_u8(addr);
+                    print!("${: <27}", format!("{:02X} = {:02X}", immediate, op));
+                } else {
+                    print!("${: <27}", format!("{:04X}", immediate));
+                }
             }
             AddressingMode::ZeroPageX => {
-                let op = self.bus.borrow().read_u8(self.regs.pc + 1);
-                print!("${: <25},X", format!("{:02X}", op));
+                let immediate = self.bus.borrow().read_u8(self.regs.pc);
+                if print_operand {
+                    let addr = self.resolve_adressing(instr.mode, instr.cycles);
+                    let op = self.bus.borrow().read_u8(addr);
+                    print!(
+                        "${: <27}",
+                        format!("{:02X},X @ {:02X} = {:02X}", immediate, addr as u8, op)
+                    );
+                } else {
+                    print!("${: <27}", format!("{:02X},X", immediate));
+                }
             }
             AddressingMode::ZeroPageY => {
-                let op = self.bus.borrow().read_u8(self.regs.pc + 1);
-                print!("${: <25},Y", format!("{:02X}", op));
+                let immediate = self.bus.borrow().read_u8(self.regs.pc);
+                if print_operand {
+                    let addr = self.resolve_adressing(instr.mode, instr.cycles);
+                    let op = self.bus.borrow().read_u8(addr);
+                    print!(
+                        "${: <27}",
+                        format!("{:02X},Y @ {:02X} = {:02X}", immediate, addr as u8, op)
+                    );
+                } else {
+                    print!("${: <27}", format!("{:02X},Y", immediate));
+                }
             }
             AddressingMode::Absolute => {
-                let addr = self.bus.borrow().read_u16(self.regs.pc + 1);
-                print!("${: <27}", format!("{:04X}", addr));
+                let addr = self.bus.borrow().read_u16(self.regs.pc);
+                if print_operand {
+                    let op = self.bus.borrow().read_u8(addr);
+                    print!("${: <27}", format!("{:04X} = {:02X}", addr, op));
+                } else {
+                    print!("${: <27}", format!("{:04X}", addr));
+                }
             }
             AddressingMode::AbsoluteX => {
-                let addr = self.bus.borrow().read_u16(self.regs.pc + 1);
-                print!("${: <25},X", format!("{:04X}", addr));
+                let addr = self.bus.borrow().read_u16(self.regs.pc);
+                let final_addr = self.resolve_adressing(instr.mode, instr.cycles);
+                let op = self.bus.borrow().read_u8(final_addr);
+                print!(
+                    "${: <27}",
+                    format!("{:04X},X @ {:04X} = {:02X}", addr, final_addr, op)
+                );
             }
             AddressingMode::AbsoluteY => {
-                let addr = self.bus.borrow().read_u16(self.regs.pc + 1);
-                print!("${: <25},Y", format!("{:04X}", addr));
+                let addr = self.bus.borrow().read_u16(self.regs.pc);
+                let final_addr = self.resolve_adressing(instr.mode, instr.cycles);
+                let op = self.bus.borrow().read_u8(final_addr);
+                print!(
+                    "${: <27}",
+                    format!("{:04X},Y @ {:04X} = {:02X}", addr, final_addr, op)
+                );
             }
             AddressingMode::IndirectX => {
-                let op = self.bus.borrow().read_u8(self.regs.pc + 1);
-                print!("(${: <23},X)", format!("{:02X}", op));
+                let immediate = self.bus.borrow().read_u8(self.regs.pc);
+                let addr = self.resolve_adressing(instr.mode, instr.cycles);
+                let op = self.bus.borrow().read_u8(addr);
+                print!(
+                    "(${: <26}",
+                    format!(
+                        "{:02X},X) @ {:02X} = {:04X} = {:02X}",
+                        immediate,
+                        immediate.wrapping_add(self.regs.idx_x),
+                        addr,
+                        op
+                    )
+                );
             }
             AddressingMode::IndirectY => {
-                let op = self.bus.borrow().read_u8(self.regs.pc + 1);
-                print!("(${: <23},Y)", format!("{:02X}", op));
+                let immediate = self.bus.borrow().read_u8(self.regs.pc);
+                let addr = self.resolve_adressing(instr.mode, instr.cycles);
+                let op = self.bus.borrow().read_u8(addr);
+                print!(
+                    "(${: <26}",
+                    format!(
+                        "{:02X}),Y = {:04X} @ {:04X} = {:02X}",
+                        immediate,
+                        addr.wrapping_sub(self.regs.idx_y as u16),
+                        addr,
+                        op
+                    )
+                );
             }
             AddressingMode::Indirect => {
-                let indirect_addr = self.bus.borrow().read_u16(self.regs.pc + 1);
-                let addr = self.bus.borrow().read_u16(indirect_addr);
-                print!("(${: <25})", format!("{:02X}", addr));
+                let indirect_addr = self.bus.borrow().read_u16(self.regs.pc);
+                let lb: u8;
+                let hb: u8;
+
+                if indirect_addr & 0x00FF == 0x00FF {
+                    lb = self.bus.borrow().read_u8(indirect_addr);
+                    hb = self.bus.borrow().read_u8(indirect_addr & 0xFF00);
+                } else {
+                    (lb, hb) = self
+                        .bus
+                        .borrow()
+                        .read_u16(indirect_addr)
+                        .to_le_bytes()
+                        .into();
+                }
+
+                let addr = Addr::from_le_bytes([lb, hb]);
+                print!(
+                    "(${: <26}",
+                    format!("{:04X}) = {:04X}", indirect_addr, addr)
+                );
             }
         }
+
+        self.regs.pc -= 1;
     }
 
-    fn print_state(&self, instr: &Instruction) {
+    fn print_state(&mut self, instr: &Instruction) {
         print!("{:04X}  ", self.regs.pc);
 
         let mut max_length = 3;
@@ -107,11 +193,30 @@ impl Cpu {
             max_length -= 1;
         }
 
-        print!(" {:?} ", instr.variant);
+        let opcode = self.bus.borrow().read_u8(self.regs.pc);
+        let is_unofficial = match instr.variant {
+            InstructionVariant::NOP => opcode != 0xEA,
+            InstructionVariant::LAX => true,
+            InstructionVariant::SAX => true,
+            InstructionVariant::SBC => opcode == 0xEB,
+            InstructionVariant::DCP => true,
+            InstructionVariant::ISB => true,
+            InstructionVariant::SLO => true,
+            InstructionVariant::RLA => true,
+            InstructionVariant::SRE => true,
+            InstructionVariant::RRA => true,
+            _ => false,
+        };
+
+        if is_unofficial {
+            print!("*{:?} ", instr.variant);
+        } else {
+            print!(" {:?} ", instr.variant);
+        }
 
         self.print_adressing(instr);
 
-        print!("{}\n", self);
+        println!("{}", self);
     }
 
     pub fn execute(&mut self) {
