@@ -130,7 +130,7 @@ impl Cpu {
     fn decode(opcode: u8) -> &'static Instruction {
         let instruction = INSTRUCTIONS
             .get(&opcode)
-            .expect(format!("Unknown opcode {}", opcode).as_str());
+            .unwrap_or_else(|| panic!("Unknown opcode {}", opcode));
 
         instruction
     }

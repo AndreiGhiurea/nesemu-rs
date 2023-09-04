@@ -23,8 +23,8 @@ enum Mirroring {
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 enum TvSystem {
     #[default]
-    NTSC,
-    PAL,
+    Ntsc,
+    Pal,
 }
 
 #[derive(Default, Clone, Debug, PartialEq, Eq)]
@@ -78,9 +78,9 @@ impl NesHeader {
                 is_nes_2_format: flg7 & 0xC == 0xC,
                 prg_ram_size: flg8,
                 tv_system: if flg9 & 1 != 0x0 {
-                    TvSystem::PAL
+                    TvSystem::Pal
                 } else {
-                    TvSystem::NTSC
+                    TvSystem::Ntsc
                 },
                 padding: Vec::from(pad).try_into().unwrap(),
             },
@@ -97,20 +97,17 @@ const _PLAYCHOICE_PROM_SIZE: usize = 0x20;
 #[derive(Debug, Default)]
 struct NesImage<'a> {
     header: NesHeader,
-    trainer: Option<Box<&'a [u8]>>,
-    prg_rom: Box<&'a [u8]>,
-    chr_rom: Box<&'a [u8]>,
-    playchoice_inst_rom: Option<Box<&'a [u8]>>,
+    trainer: Option<&'a [u8]>,
+    prg_rom: &'a [u8],
+    chr_rom: &'a [u8],
+    playchoice_inst_rom: Option<&'a [u8]>,
 }
 
 impl<'a> NesImage<'a> {
-    fn parse_trainer(
-        header: &NesHeader,
-        bytes: &'a [u8],
-    ) -> IResult<&'a [u8], Option<Box<&'a [u8]>>> {
+    fn parse_trainer(header: &NesHeader, bytes: &'a [u8]) -> IResult<&'a [u8], Option<&'a [u8]>> {
         if header.has_trainer {
             let (bytes, trainer) = take(TRAINER_SIZE)(bytes)?;
-            Ok((bytes, Some(Box::new(trainer))))
+            Ok((bytes, Some(trainer)))
         } else {
             Ok((bytes, None))
         }
@@ -119,10 +116,10 @@ impl<'a> NesImage<'a> {
     fn parse_playchoice_inst_rom(
         header: &NesHeader,
         bytes: &'a [u8],
-    ) -> IResult<&'a [u8], Option<Box<&'a [u8]>>> {
+    ) -> IResult<&'a [u8], Option<&'a [u8]>> {
         if header.has_playchoice {
             let (bytes, playchoice_inst) = take(PLAYCHOICE_INST_ROM_SIZE)(bytes)?;
-            Ok((bytes, Some(Box::new(playchoice_inst))))
+            Ok((bytes, Some(playchoice_inst)))
         } else {
             Ok((bytes, None))
         }
@@ -136,11 +133,9 @@ impl<'a> NesImage<'a> {
 
         let prg_rom_size = PRG_ROM_BLOCK_SIZE * header.prg_rom_size as usize;
         let (bytes, prg_rom) = take(prg_rom_size)(bytes)?;
-        let prg_rom = Box::new(prg_rom);
 
         let chr_rom_size = CHR_ROM_BLOCK_SIZE * header.chr_rom_size as usize;
         let (bytes, chr_rom) = take(chr_rom_size)(bytes)?;
-        let chr_rom = Box::new(chr_rom);
 
         let (_bytes, playchoice_inst_rom) = NesImage::parse_playchoice_inst_rom(&header, bytes)?;
 
@@ -171,7 +166,7 @@ impl Cartridge {
     }
 
     pub fn load(&mut self, path: &str) {
-        let bytes = fs::read(path).expect(format!("Cannot fine file: {}", path).as_str());
+        let bytes = fs::read(path).unwrap_or_else(|_| panic!("Cannot fine file: {}", path));
 
         let result = NesImage::parse(bytes.as_slice());
 
@@ -197,13 +192,13 @@ impl Cartridge {
         };
 
         let mut load_addr: usize = 0x8000;
-        for byte in *image.prg_rom {
+        for byte in image.prg_rom {
             self.bus.borrow_mut().write_u8(load_addr as u16, *byte);
             load_addr += 0x1;
         }
 
         load_addr = 0xC000;
-        for byte in *image.prg_rom {
+        for byte in image.prg_rom {
             self.bus.borrow_mut().write_u8(load_addr as u16, *byte);
             load_addr += 0x1;
         }
