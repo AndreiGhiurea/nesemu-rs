@@ -136,32 +136,31 @@ impl Cpu {
     }
 
     fn stack_push_u16(&mut self, op: u16) {
-        self.regs.sp -= 2;
-
-        let addr = Addr::from_le_bytes([self.regs.sp, 0x01]);
-        self.bus.borrow_mut().write_u16(addr, op);
+        let bytes = op.to_le_bytes();
+        self.stack_push_u8(bytes[1]);
+        self.stack_push_u8(bytes[0]);
     }
 
     fn stack_push_u8(&mut self, op: u8) {
-        self.regs.sp -= 1;
-
         let addr = Addr::from_le_bytes([self.regs.sp, 0x01]);
         self.bus.borrow_mut().write_u8(addr, op);
+
+        self.regs.sp -= 1;
     }
 
     fn stack_pop_u16(&mut self) -> u16 {
-        let addr = Addr::from_le_bytes([self.regs.sp, 0x01]);
-        let res = self.bus.borrow().read_u16(addr);
+        let byte1 = self.stack_pop_u8();
+        let byte2 = self.stack_pop_u8();
 
-        self.regs.sp += 2;
-        res
+        u16::from_le_bytes([byte1, byte2])
     }
 
     fn stack_pop_u8(&mut self) -> u8 {
+        self.regs.sp += 1;
+
         let addr = Addr::from_le_bytes([self.regs.sp, 0x01]);
         let res = self.bus.borrow().read_u8(addr);
 
-        self.regs.sp += 1;
         res
     }
 

@@ -27,10 +27,4 @@ impl Bus {
     pub fn write_u8(&mut self, address: Addr, value: u8) {
         self.mem[address as usize] = value;
     }
-
-    pub fn write_u16(&mut self, address: Addr, value: u16) {
-        let bytes = value.to_le_bytes();
-        self.mem[address as usize] = bytes[0];
-        self.mem[address as usize + 1] = bytes[1];
-    }
 }
