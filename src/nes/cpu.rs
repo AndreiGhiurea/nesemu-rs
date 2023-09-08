@@ -1,28 +1,26 @@
-use std::{cell::RefCell, fmt, rc::Rc};
-
-use bitflags::bitflags;
-
 mod emulator;
 mod instructions;
-use instructions::{AddressingMode, Instruction, INSTRUCTIONS};
-
-use self::instructions::InstructionVariant;
+mod registers;
+mod trace;
 
 use super::Bus;
+use instructions::{AddressingMode, Instruction, InstructionVariant, INSTRUCTIONS};
+use registers::Registers;
+use trace::Trace;
+
+pub type Addr = u16;
 
 ///
 /// 6502 Microprocessor
 ///
 pub struct Cpu {
     regs: Registers,
-    bus: Rc<RefCell<Bus>>,
+    bus: Bus,
     cycles: usize,
 }
 
-pub type Addr = u16;
-
 impl Cpu {
-    pub fn new(bus: Rc<RefCell<Bus>>) -> Cpu {
+    pub fn new(bus: Bus) -> Cpu {
         let regs = Registers::default();
 
         Cpu {
@@ -32,197 +30,11 @@ impl Cpu {
         }
     }
 
-    fn print_adressing(&mut self, instr: &Instruction) {
-        let print_operand = !matches!(instr.variant, InstructionVariant::JSR)
-            && !matches!(instr.variant, InstructionVariant::JMP);
-
-        self.regs.pc += 1;
-
-        match instr.mode {
-            AddressingMode::Implied => {
-                print!("{: <28}", " ");
-            }
-            AddressingMode::Accumulator => {
-                print!("{: <28}", "A");
-            }
-            AddressingMode::Relative => {
-                let op = self.bus.borrow().read_i8(self.regs.pc);
-                let mut addr = self.regs.pc + 1;
-                addr = addr.wrapping_add_signed(op as i16);
-                print!("${: <27}", format!("{:02X}", addr));
-            }
-            AddressingMode::Immediate => {
-                let op = self.bus.borrow().read_u8(self.regs.pc);
-                print!("#${: <26}", format!("{:02X}", op));
-            }
-            AddressingMode::ZeroPage => {
-                let immediate: u8 = self.bus.borrow().read_u8(self.regs.pc);
-                if print_operand {
-                    let addr = self.resolve_adressing(instr.mode, instr.cycles);
-                    let op = self.bus.borrow().read_u8(addr);
-                    print!("${: <27}", format!("{:02X} = {:02X}", immediate, op));
-                } else {
-                    print!("${: <27}", format!("{:04X}", immediate));
-                }
-            }
-            AddressingMode::ZeroPageX => {
-                let immediate = self.bus.borrow().read_u8(self.regs.pc);
-                if print_operand {
-                    let addr = self.resolve_adressing(instr.mode, instr.cycles);
-                    let op = self.bus.borrow().read_u8(addr);
-                    print!(
-                        "${: <27}",
-                        format!("{:02X},X @ {:02X} = {:02X}", immediate, addr as u8, op)
-                    );
-                } else {
-                    print!("${: <27}", format!("{:02X},X", immediate));
-                }
-            }
-            AddressingMode::ZeroPageY => {
-                let immediate = self.bus.borrow().read_u8(self.regs.pc);
-                if print_operand {
-                    let addr = self.resolve_adressing(instr.mode, instr.cycles);
-                    let op = self.bus.borrow().read_u8(addr);
-                    print!(
-                        "${: <27}",
-                        format!("{:02X},Y @ {:02X} = {:02X}", immediate, addr as u8, op)
-                    );
-                } else {
-                    print!("${: <27}", format!("{:02X},Y", immediate));
-                }
-            }
-            AddressingMode::Absolute => {
-                let addr = self.bus.borrow().read_u16(self.regs.pc);
-                if print_operand {
-                    let op = self.bus.borrow().read_u8(addr);
-                    print!("${: <27}", format!("{:04X} = {:02X}", addr, op));
-                } else {
-                    print!("${: <27}", format!("{:04X}", addr));
-                }
-            }
-            AddressingMode::AbsoluteX => {
-                let addr = self.bus.borrow().read_u16(self.regs.pc);
-                let final_addr = self.resolve_adressing(instr.mode, instr.cycles);
-                let op = self.bus.borrow().read_u8(final_addr);
-                print!(
-                    "${: <27}",
-                    format!("{:04X},X @ {:04X} = {:02X}", addr, final_addr, op)
-                );
-            }
-            AddressingMode::AbsoluteY => {
-                let addr = self.bus.borrow().read_u16(self.regs.pc);
-                let final_addr = self.resolve_adressing(instr.mode, instr.cycles);
-                let op = self.bus.borrow().read_u8(final_addr);
-                print!(
-                    "${: <27}",
-                    format!("{:04X},Y @ {:04X} = {:02X}", addr, final_addr, op)
-                );
-            }
-            AddressingMode::IndirectX => {
-                let immediate = self.bus.borrow().read_u8(self.regs.pc);
-                let addr = self.resolve_adressing(instr.mode, instr.cycles);
-                let op = self.bus.borrow().read_u8(addr);
-                print!(
-                    "(${: <26}",
-                    format!(
-                        "{:02X},X) @ {:02X} = {:04X} = {:02X}",
-                        immediate,
-                        immediate.wrapping_add(self.regs.idx_x),
-                        addr,
-                        op
-                    )
-                );
-            }
-            AddressingMode::IndirectY => {
-                let immediate = self.bus.borrow().read_u8(self.regs.pc);
-                let addr = self.resolve_adressing(instr.mode, instr.cycles);
-                let op = self.bus.borrow().read_u8(addr);
-                print!(
-                    "(${: <26}",
-                    format!(
-                        "{:02X}),Y = {:04X} @ {:04X} = {:02X}",
-                        immediate,
-                        addr.wrapping_sub(self.regs.idx_y as u16),
-                        addr,
-                        op
-                    )
-                );
-            }
-            AddressingMode::Indirect => {
-                let indirect_addr = self.bus.borrow().read_u16(self.regs.pc);
-                let lb: u8;
-                let hb: u8;
-
-                if indirect_addr & 0x00FF == 0x00FF {
-                    lb = self.bus.borrow().read_u8(indirect_addr);
-                    hb = self.bus.borrow().read_u8(indirect_addr & 0xFF00);
-                } else {
-                    (lb, hb) = self
-                        .bus
-                        .borrow()
-                        .read_u16(indirect_addr)
-                        .to_le_bytes()
-                        .into();
-                }
-
-                let addr = Addr::from_le_bytes([lb, hb]);
-                print!(
-                    "(${: <26}",
-                    format!("{:04X}) = {:04X}", indirect_addr, addr)
-                );
-            }
-        }
-
-        self.regs.pc -= 1;
-    }
-
-    fn print_state(&mut self, instr: &Instruction) {
-        print!("{:04X}  ", self.regs.pc);
-
-        let mut max_length = 3;
-        for idx in 0..instr.length {
-            print!(
-                "{:02X} ",
-                self.bus.borrow().read_u8(self.regs.pc + idx as u16)
-            );
-            max_length -= 1;
-        }
-
-        for _idx in 0..max_length {
-            print!("   ");
-        }
-
-        let opcode = self.bus.borrow().read_u8(self.regs.pc);
-        let is_unofficial = match instr.variant {
-            InstructionVariant::NOP => opcode != 0xEA,
-            InstructionVariant::LAX => true,
-            InstructionVariant::SAX => true,
-            InstructionVariant::SBC => opcode == 0xEB,
-            InstructionVariant::DCP => true,
-            InstructionVariant::ISB => true,
-            InstructionVariant::SLO => true,
-            InstructionVariant::RLA => true,
-            InstructionVariant::SRE => true,
-            InstructionVariant::RRA => true,
-            _ => false,
-        };
-
-        if is_unofficial {
-            print!("*{:?} ", instr.variant);
-        } else {
-            print!(" {:?} ", instr.variant);
-        }
-
-        self.print_adressing(instr);
-
-        println!("{}", self);
-    }
-
     pub fn execute(&mut self) {
-        let opcode = self.bus.borrow().read_u8(self.regs.pc);
+        let opcode = self.bus.read_u8(self.regs.pc);
         let instruction = Cpu::decode(opcode);
 
-        self.print_state(instruction);
+        Trace::print_state(self, instruction);
 
         self.emulate(instruction);
     }
@@ -247,7 +59,7 @@ impl Cpu {
 
     fn stack_push_u8(&mut self, op: u8) {
         let addr = Addr::from_le_bytes([self.regs.sp, 0x01]);
-        self.bus.borrow_mut().write_u8(addr, op);
+        self.bus.write_u8(addr, op);
 
         self.regs.sp -= 1;
     }
@@ -263,9 +75,7 @@ impl Cpu {
         self.regs.sp += 1;
 
         let addr = Addr::from_le_bytes([self.regs.sp, 0x01]);
-        let res = self.bus.borrow().read_u8(addr);
-
-        res
+        self.bus.read_u8(addr)
     }
 
     fn resolve_adressing(&self, mode: AddressingMode, _cycles: u8) -> Addr {
@@ -274,54 +84,49 @@ impl Cpu {
             AddressingMode::Relative => self.regs.pc,
             AddressingMode::Immediate => self.regs.pc,
             AddressingMode::ZeroPage => {
-                let op = self.bus.borrow().read_u8(self.regs.pc);
+                let op = self.bus.read_u8(self.regs.pc);
                 Addr::from_le_bytes([op, 0x00])
             }
             AddressingMode::ZeroPageX => {
-                let mut op = self.bus.borrow().read_u8(self.regs.pc);
+                let mut op = self.bus.read_u8(self.regs.pc);
                 op = op.wrapping_add(self.regs.idx_x);
                 Addr::from_le_bytes([op, 0x00])
             }
             AddressingMode::ZeroPageY => {
-                let mut op = self.bus.borrow().read_u8(self.regs.pc);
+                let mut op = self.bus.read_u8(self.regs.pc);
                 op = op.wrapping_add(self.regs.idx_y);
                 Addr::from_le_bytes([op, 0x00])
             }
-            AddressingMode::Absolute => {
-                let addr = self.bus.borrow().read_u16(self.regs.pc);
-                addr
-            }
+            AddressingMode::Absolute => self.bus.read_u16(self.regs.pc),
             AddressingMode::AbsoluteX => {
-                let addr = self.bus.borrow().read_u16(self.regs.pc);
+                let addr = self.bus.read_u16(self.regs.pc);
                 addr.wrapping_add(self.regs.idx_x as u16)
             }
             AddressingMode::AbsoluteY => {
-                let addr = self.bus.borrow().read_u16(self.regs.pc);
+                let addr = self.bus.read_u16(self.regs.pc);
                 addr.wrapping_add(self.regs.idx_y as u16)
             }
             AddressingMode::IndirectX => {
-                let op = self.bus.borrow().read_u8(self.regs.pc);
+                let op = self.bus.read_u8(self.regs.pc);
                 let lb = self
                     .bus
-                    .borrow()
                     .read_u8((op as Addr + self.regs.idx_x as Addr) & 0x00FF);
                 let hb = self
                     .bus
-                    .borrow()
                     .read_u8((op as Addr + self.regs.idx_x as Addr + 0x1) & 0x00FF);
 
                 Addr::from_le_bytes([lb, hb])
             }
             AddressingMode::IndirectY => {
-                let op = self.bus.borrow().read_u8(self.regs.pc);
-                let lb = self.bus.borrow().read_u8(op as Addr);
-                let hb = self.bus.borrow().read_u8((op as Addr + 0x1) & 0x00FF);
+                let op = self.bus.read_u8(self.regs.pc);
+                let lb = self.bus.read_u8(op as Addr);
+                let hb = self.bus.read_u8((op as Addr + 0x1) & 0x00FF);
 
                 let addr = Addr::from_le_bytes([lb, hb]);
                 addr.wrapping_add(self.regs.idx_y as u16)
             }
             AddressingMode::Indirect => {
-                let indirect_addr = self.bus.borrow().read_u16(self.regs.pc);
+                let indirect_addr = self.bus.read_u16(self.regs.pc);
                 let lb: u8;
                 let hb: u8;
 
@@ -333,15 +138,10 @@ impl Cpu {
                 // the indirect vector is not at the end of the page.
                 // We're building a NES emulator so we will emulate the classic 6502 behaviour.
                 if indirect_addr & 0x00FF == 0x00FF {
-                    lb = self.bus.borrow().read_u8(indirect_addr);
-                    hb = self.bus.borrow().read_u8(indirect_addr & 0xFF00);
+                    lb = self.bus.read_u8(indirect_addr);
+                    hb = self.bus.read_u8(indirect_addr & 0xFF00);
                 } else {
-                    (lb, hb) = self
-                        .bus
-                        .borrow()
-                        .read_u16(indirect_addr)
-                        .to_le_bytes()
-                        .into();
+                    (lb, hb) = self.bus.read_u16(indirect_addr).to_le_bytes().into();
                 }
 
                 Addr::from_le_bytes([lb, hb])
@@ -368,84 +168,5 @@ impl Cpu {
                 self.regs.pc += instruction.length as u16 - 1;
             }
         }
-    }
-}
-
-struct Registers {
-    pc: u16,                 // Program counter
-    sp: u8,                  // Stack pointer
-    acc: u8,                 // Accumulator
-    idx_x: u8,               // Index register X
-    idx_y: u8,               // Index register Y
-    status: ProcessorStatus, // Bitfield with various flags
-}
-
-impl Default for Registers {
-    fn default() -> Self {
-        Registers {
-            pc: 0x0,
-            sp: 0xFD,
-            acc: 0x0,
-            idx_x: 0x0,
-            idx_y: 0x0,
-            status: ProcessorStatus::from_bits(0x24).unwrap(),
-        }
-    }
-}
-
-impl fmt::Display for Cpu {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X}", // PPU:  {}, {} CYC:{}",
-            self.regs.acc,
-            self.regs.idx_x,
-            self.regs.idx_y,
-            self.regs.status.bits(),
-            self.regs.sp,
-            // 0x00,
-            // 0x00,
-            // self.cycles
-        )
-    }
-}
-
-bitflags! {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
-    struct ProcessorStatus: u8 {
-        const CARRY_FLAG = 0x1;
-        const ZERO_FLAG = 0x1 << 1;
-        const INTERRUPT_DISABLE = 0x1 << 2;
-        const DECIMAL_MODE = 0x1 << 3;
-        const BREAK_CMD = 0x1 << 4;
-        const BREAK_CMD2 = 0x1 << 5;
-        const OVERFLOW_FLAG = 0x1 << 6;
-        const NEGATIVE_FLAG = 0x1 << 7;
-    }
-}
-
-impl ProcessorStatus {
-    fn set_carry_flag(&mut self, overflow: bool) -> &mut Self {
-        self.set(ProcessorStatus::CARRY_FLAG, overflow);
-
-        self
-    }
-
-    fn set_zero_flag(&mut self, result: u8) -> &mut Self {
-        self.set(ProcessorStatus::ZERO_FLAG, result == 0x0);
-
-        self
-    }
-
-    fn set_overflow_flag(&mut self, overflow: bool) -> &mut Self {
-        self.set(ProcessorStatus::OVERFLOW_FLAG, overflow);
-
-        self
-    }
-
-    fn set_negative_flag(&mut self, result: u8) -> &mut Self {
-        self.set(ProcessorStatus::NEGATIVE_FLAG, result & (0x1 << 7) != 0x0);
-
-        self
     }
 }

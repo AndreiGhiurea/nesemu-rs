@@ -1,15 +1,22 @@
 const MEMORY_SIZE: usize = 0x10000;
-use super::cpu::Addr;
+use super::{cartridge::Cartridge, cpu::Addr, ppu::Ppu};
 
 pub struct Bus {
     mem: [u8; MEMORY_SIZE],
+    rom: Cartridge,
+    ppu: Ppu,
 }
 
 impl Bus {
-    pub fn new() -> Bus {
-        Bus {
+    pub fn new(rom: Cartridge, ppu: Ppu) -> Bus {
+        let mut bus = Bus {
             mem: [0x0; MEMORY_SIZE],
-        }
+            rom,
+            ppu,
+        };
+
+        bus.load_rom();
+        bus
     }
 
     pub fn read_u16(&self, address: Addr) -> u16 {
@@ -26,5 +33,15 @@ impl Bus {
 
     pub fn write_u8(&mut self, address: Addr, value: u8) {
         self.mem[address as usize] = value;
+    }
+
+    pub fn load_rom(&mut self) {
+        let mut load_addr: usize = 0x8000;
+        for byte in self.rom.prg_rom.clone() {
+            self.write_u8(load_addr as u16, byte);
+            self.write_u8(load_addr as u16 + 0x4000, byte);
+
+            load_addr += 0x1;
+        }
     }
 }

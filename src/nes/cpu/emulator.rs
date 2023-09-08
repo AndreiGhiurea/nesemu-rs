@@ -1,6 +1,7 @@
 use super::{
     instructions::{AddressingMode, Instruction},
-    Cpu, ProcessorStatus,
+    registers::ProcessorStatus,
+    Cpu,
 };
 
 pub struct Emu;
@@ -8,7 +9,7 @@ pub struct Emu;
 impl Emu {
     pub fn adc(cpu: &mut Cpu, instr: &Instruction) {
         let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-        let op = cpu.bus.borrow().read_u8(addr);
+        let op = cpu.bus.read_u8(addr);
 
         let carry = cpu.regs.status.contains(ProcessorStatus::CARRY_FLAG);
         let carry: u8 = if carry { 0x1 } else { 0x0 };
@@ -36,7 +37,7 @@ impl Emu {
 
     pub fn and(cpu: &mut Cpu, instr: &Instruction) {
         let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-        let op = cpu.bus.borrow().read_u8(addr);
+        let op = cpu.bus.read_u8(addr);
 
         cpu.regs.acc &= op;
 
@@ -52,7 +53,7 @@ impl Emu {
             op = cpu.regs.acc;
         } else {
             let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-            op = cpu.bus.borrow().read_u8(addr);
+            op = cpu.bus.read_u8(addr);
         }
 
         // Put bit 7 into carry flag.
@@ -67,12 +68,12 @@ impl Emu {
             cpu.regs.acc = op;
         } else {
             let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-            cpu.bus.borrow_mut().write_u8(addr, op);
+            cpu.bus.write_u8(addr, op);
         }
     }
 
     pub fn bcc(cpu: &mut Cpu, _instr: &Instruction) {
-        let op = cpu.bus.borrow().read_i8(cpu.regs.pc);
+        let op = cpu.bus.read_i8(cpu.regs.pc);
 
         if !cpu.regs.status.contains(ProcessorStatus::CARRY_FLAG) {
             cpu.regs.pc = cpu.regs.pc.wrapping_add_signed(op as i16);
@@ -80,7 +81,7 @@ impl Emu {
     }
 
     pub fn bcs(cpu: &mut Cpu, _instr: &Instruction) {
-        let op = cpu.bus.borrow().read_i8(cpu.regs.pc);
+        let op = cpu.bus.read_i8(cpu.regs.pc);
 
         if cpu.regs.status.contains(ProcessorStatus::CARRY_FLAG) {
             cpu.regs.pc = cpu.regs.pc.wrapping_add_signed(op as i16);
@@ -88,7 +89,7 @@ impl Emu {
     }
 
     pub fn beq(cpu: &mut Cpu, _instr: &Instruction) {
-        let op = cpu.bus.borrow().read_i8(cpu.regs.pc);
+        let op = cpu.bus.read_i8(cpu.regs.pc);
 
         if cpu.regs.status.contains(ProcessorStatus::ZERO_FLAG) {
             cpu.regs.pc = cpu.regs.pc.wrapping_add_signed(op as i16);
@@ -106,7 +107,7 @@ impl Emu {
     }
 
     pub fn bne(cpu: &mut Cpu, _instr: &Instruction) {
-        let op = cpu.bus.borrow().read_i8(cpu.regs.pc);
+        let op = cpu.bus.read_i8(cpu.regs.pc);
 
         if !cpu.regs.status.contains(ProcessorStatus::ZERO_FLAG) {
             cpu.regs.pc = cpu.regs.pc.wrapping_add_signed(op as i16);
@@ -114,7 +115,7 @@ impl Emu {
     }
 
     pub fn bmi(cpu: &mut Cpu, _instr: &Instruction) {
-        let op = cpu.bus.borrow().read_i8(cpu.regs.pc);
+        let op = cpu.bus.read_i8(cpu.regs.pc);
 
         if cpu.regs.status.contains(ProcessorStatus::NEGATIVE_FLAG) {
             cpu.regs.pc = cpu.regs.pc.wrapping_add_signed(op as i16);
@@ -122,7 +123,7 @@ impl Emu {
     }
 
     pub fn bpl(cpu: &mut Cpu, _instr: &Instruction) {
-        let op = cpu.bus.borrow().read_i8(cpu.regs.pc);
+        let op = cpu.bus.read_i8(cpu.regs.pc);
 
         if !cpu.regs.status.contains(ProcessorStatus::NEGATIVE_FLAG) {
             cpu.regs.pc = cpu.regs.pc.wrapping_add_signed(op as i16);
@@ -130,7 +131,7 @@ impl Emu {
     }
 
     pub fn bvs(cpu: &mut Cpu, _instr: &Instruction) {
-        let op = cpu.bus.borrow().read_i8(cpu.regs.pc);
+        let op = cpu.bus.read_i8(cpu.regs.pc);
 
         if cpu.regs.status.contains(ProcessorStatus::OVERFLOW_FLAG) {
             cpu.regs.pc = cpu.regs.pc.wrapping_add_signed(op as i16);
@@ -138,7 +139,7 @@ impl Emu {
     }
 
     pub fn bvc(cpu: &mut Cpu, _instr: &Instruction) {
-        let op = cpu.bus.borrow().read_i8(cpu.regs.pc);
+        let op = cpu.bus.read_i8(cpu.regs.pc);
 
         if !cpu.regs.status.contains(ProcessorStatus::OVERFLOW_FLAG) {
             cpu.regs.pc = cpu.regs.pc.wrapping_add_signed(op as i16);
@@ -147,7 +148,7 @@ impl Emu {
 
     pub fn bit(cpu: &mut Cpu, instr: &Instruction) {
         let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-        let mut op = cpu.bus.borrow().read_u8(addr);
+        let mut op = cpu.bus.read_u8(addr);
 
         let is_neg_set = op & (0x1 << 7) != 0x0;
         let is_of_set = op & (0x1 << 6) != 0x0;
@@ -188,7 +189,7 @@ impl Emu {
 
     pub fn cmp(cpu: &mut Cpu, instr: &Instruction) {
         let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-        let op = cpu.bus.borrow().read_u8(addr);
+        let op = cpu.bus.read_u8(addr);
 
         let res = cpu.regs.acc.wrapping_sub(op);
 
@@ -201,7 +202,7 @@ impl Emu {
 
     pub fn cpx(cpu: &mut Cpu, instr: &Instruction) {
         let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-        let op = cpu.bus.borrow().read_u8(addr);
+        let op = cpu.bus.read_u8(addr);
 
         let res = cpu.regs.idx_x.wrapping_sub(op);
 
@@ -214,7 +215,7 @@ impl Emu {
 
     pub fn cpy(cpu: &mut Cpu, instr: &Instruction) {
         let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-        let op = cpu.bus.borrow().read_u8(addr);
+        let op = cpu.bus.read_u8(addr);
 
         let res = cpu.regs.idx_y.wrapping_sub(op);
 
@@ -227,13 +228,13 @@ impl Emu {
 
     pub fn dec(cpu: &mut Cpu, instr: &Instruction) {
         let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-        let mut op = cpu.bus.borrow().read_u8(addr);
+        let mut op = cpu.bus.read_u8(addr);
 
         op = op.wrapping_sub(1);
 
         cpu.regs.status.set_zero_flag(op).set_negative_flag(op);
 
-        cpu.bus.borrow_mut().write_u8(addr, op);
+        cpu.bus.write_u8(addr, op);
     }
 
     pub fn dex(cpu: &mut Cpu, _instr: &Instruction) {
@@ -256,7 +257,7 @@ impl Emu {
 
     pub fn eor(cpu: &mut Cpu, instr: &Instruction) {
         let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-        let op = cpu.bus.borrow().read_u8(addr);
+        let op = cpu.bus.read_u8(addr);
 
         cpu.regs.acc ^= op;
 
@@ -268,13 +269,13 @@ impl Emu {
 
     pub fn inc(cpu: &mut Cpu, instr: &Instruction) {
         let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-        let mut op = cpu.bus.borrow().read_u8(addr);
+        let mut op = cpu.bus.read_u8(addr);
 
         op = op.wrapping_add(1);
 
         cpu.regs.status.set_zero_flag(op).set_negative_flag(op);
 
-        cpu.bus.borrow_mut().write_u8(addr, op);
+        cpu.bus.write_u8(addr, op);
     }
 
     pub fn inx(cpu: &mut Cpu, _instr: &Instruction) {
@@ -312,7 +313,7 @@ impl Emu {
 
     pub fn lda(cpu: &mut Cpu, instr: &Instruction) {
         let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-        let op = cpu.bus.borrow().read_u8(addr);
+        let op = cpu.bus.read_u8(addr);
 
         cpu.regs.acc = op;
         cpu.regs.status.set_zero_flag(op).set_negative_flag(op);
@@ -320,7 +321,7 @@ impl Emu {
 
     pub fn ldx(cpu: &mut Cpu, instr: &Instruction) {
         let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-        let op = cpu.bus.borrow().read_u8(addr);
+        let op = cpu.bus.read_u8(addr);
 
         cpu.regs.idx_x = op;
         cpu.regs.status.set_zero_flag(op).set_negative_flag(op);
@@ -328,7 +329,7 @@ impl Emu {
 
     pub fn ldy(cpu: &mut Cpu, instr: &Instruction) {
         let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-        let op = cpu.bus.borrow().read_u8(addr);
+        let op = cpu.bus.read_u8(addr);
 
         cpu.regs.idx_y = op;
         cpu.regs.status.set_zero_flag(op).set_negative_flag(op);
@@ -340,7 +341,7 @@ impl Emu {
             op = cpu.regs.acc;
         } else {
             let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-            op = cpu.bus.borrow().read_u8(addr);
+            op = cpu.bus.read_u8(addr);
         }
 
         // Put bit 0 into carry flag.
@@ -355,7 +356,7 @@ impl Emu {
             cpu.regs.acc = op;
         } else {
             let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-            cpu.bus.borrow_mut().write_u8(addr, op);
+            cpu.bus.write_u8(addr, op);
         }
     }
 
@@ -365,7 +366,7 @@ impl Emu {
 
     pub fn ora(cpu: &mut Cpu, instr: &Instruction) {
         let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-        let op = cpu.bus.borrow().read_u8(addr);
+        let op = cpu.bus.read_u8(addr);
 
         cpu.regs.acc |= op;
 
@@ -413,7 +414,7 @@ impl Emu {
             op = cpu.regs.acc;
         } else {
             let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-            op = cpu.bus.borrow().read_u8(addr);
+            op = cpu.bus.read_u8(addr);
         }
 
         // Save current carry flag
@@ -434,7 +435,7 @@ impl Emu {
             cpu.regs.acc = op;
         } else {
             let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-            cpu.bus.borrow_mut().write_u8(addr, op);
+            cpu.bus.write_u8(addr, op);
         }
     }
 
@@ -444,7 +445,7 @@ impl Emu {
             op = cpu.regs.acc;
         } else {
             let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-            op = cpu.bus.borrow().read_u8(addr);
+            op = cpu.bus.read_u8(addr);
         }
 
         // Save current carry flag
@@ -465,7 +466,7 @@ impl Emu {
             cpu.regs.acc = op;
         } else {
             let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-            cpu.bus.borrow_mut().write_u8(addr, op);
+            cpu.bus.write_u8(addr, op);
         }
     }
 
@@ -489,7 +490,7 @@ impl Emu {
         let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
 
         // Same implementation as ADC but with negated operator.
-        let op = !cpu.bus.borrow().read_u8(addr);
+        let op = !cpu.bus.read_u8(addr);
 
         let carry = cpu.regs.status.contains(ProcessorStatus::CARRY_FLAG);
         let carry: u8 = if carry { 0x1 } else { 0x0 };
@@ -531,17 +532,17 @@ impl Emu {
 
     pub fn sta(cpu: &mut Cpu, instr: &Instruction) {
         let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-        cpu.bus.borrow_mut().write_u8(addr, cpu.regs.acc);
+        cpu.bus.write_u8(addr, cpu.regs.acc);
     }
 
     pub fn stx(cpu: &mut Cpu, instr: &Instruction) {
         let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-        cpu.bus.borrow_mut().write_u8(addr, cpu.regs.idx_x);
+        cpu.bus.write_u8(addr, cpu.regs.idx_x);
     }
 
     pub fn sty(cpu: &mut Cpu, instr: &Instruction) {
         let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
-        cpu.bus.borrow_mut().write_u8(addr, cpu.regs.idx_y);
+        cpu.bus.write_u8(addr, cpu.regs.idx_y);
     }
 
     pub fn tax(cpu: &mut Cpu, _instr: &Instruction) {
@@ -602,7 +603,7 @@ impl Emu {
         let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
         let op = cpu.regs.acc & cpu.regs.idx_x;
 
-        cpu.bus.borrow_mut().write_u8(addr, op);
+        cpu.bus.write_u8(addr, op);
     }
 
     pub fn dcp(cpu: &mut Cpu, instr: &Instruction) {

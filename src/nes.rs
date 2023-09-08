@@ -1,33 +1,28 @@
 mod bus;
 mod cartridge;
 mod cpu;
+mod ppu;
 
 use bus::Bus;
 use cartridge::Cartridge;
 use cpu::Cpu;
-use std::{cell::RefCell, rc::Rc};
+use ppu::Ppu;
 
-#[allow(dead_code)]
 pub struct Nes {
-    bus: Rc<RefCell<Bus>>,
     cpu: Cpu,
-    cartridge: Cartridge,
 }
 
 impl Nes {
-    pub fn new() -> Nes {
-        let bus = Rc::new(RefCell::new(Bus::new()));
-        let cpu = Cpu::new(bus.clone());
-        let cartridge = Cartridge::new(bus.clone());
-        Nes {
-            bus,
-            cpu,
-            cartridge,
-        }
+    pub fn new(rom_path: &str) -> Result<Nes, String> {
+        let cartridge = Cartridge::new(rom_path)?;
+        let ppu = Ppu::new();
+        let bus = Bus::new(cartridge, ppu);
+        let cpu = Cpu::new(bus);
+
+        Ok(Nes { cpu })
     }
 
     pub fn run(&mut self) {
-        self.cartridge.load("testroms/nestest.nes");
         self.cpu.set_pc(0xC000);
 
         loop {
