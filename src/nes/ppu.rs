@@ -1,71 +1,62 @@
-use super::cpu::Addr;
+mod ctrl_reg;
+mod mask_reg;
+
+use ctrl_reg::ControlRegister;
+use mask_reg::MaskRegister;
+
+const PATTERN_TABLE_SIZE: usize = 0x1000;
+const NAMETABLE_SIZE: usize = 0x400;
 
 pub struct Ppu {
     mem: [u8; 0x4000],
-}
-
-enum VramIncrement {
-    Add1,
-    Add32,
-}
-
-enum SpriteSize {
-    Size8x8,
-    Size8x16,
-}
-
-enum PpuSelect {
-    ReadBackdrop,
-    OutputColor,
+    ctrl: ControlRegister,
+    mask: MaskRegister,
 }
 
 impl Ppu {
     pub fn new() -> Ppu {
-        Ppu { mem: [0x0; 0x4000] }
+        Ppu {
+            mem: [0x0; 0x4000],
+            ctrl: ControlRegister::default(),
+            mask: MaskRegister::default(),
+        }
     }
 
-    pub fn ppuctrl(arg: u8) {
-        let base_nametable_addr = match arg & 0b11 {
-            0b00 => 0x2000 as Addr,
-            0b01 => 0x2400 as Addr,
-            0b10 => 0x2800 as Addr,
-            0b11 => 0x2C00 as Addr,
-            _ => panic!("Unexpected error, all bits besides 0 and 1 should've been 0"),
-        };
+    pub fn load_chr(&mut self, chr: &Vec<u8>) {
+        let load_addr: usize = 0x0;
+        for byte in chr {
+            self.mem[load_addr] = *byte;
+        }
+    }
 
-        let vram_increment = if arg & 0b100 != 0 {
-            VramIncrement::Add32
-        } else {
-            VramIncrement::Add1
-        };
+    pub fn ctrl(&mut self, arg: u8) {
+        self.ctrl.update(arg);
+    }
 
-        let sprite_pattern_table = if arg & 0b1000 != 0 {
-            0x1000 as Addr
-        } else {
-            0x0000 as Addr
-        };
+    pub fn mask(&mut self, arg: u8) {
+        self.mask.update(arg);
+    }
 
-        let background_pattern_table = if arg & 0b1_0000 != 0 {
-            0x1000 as Addr
-        } else {
-            0x0000 as Addr
-        };
-
-        let sprite_size = if arg & 0b10_0000 != 0 {
-            SpriteSize::Size8x16
-        } else {
-            SpriteSize::Size8x8
-        };
-
-        let ppu_select = if arg & 0b100_0000 != 0 {
-            PpuSelect::OutputColor
-        } else {
-            PpuSelect::ReadBackdrop
-        };
-
-        let generate_nmi = arg & 0b1000_0000 != 0;
-
-        let scroll_x = if arg & 0b1 != 0 { 256 } else { 0 };
-        let scroll_y = if arg & 0b10 != 0 { 240 } else { 0 };
+    pub fn status(&self) -> u8 {
+        // 7  bit  0
+        // ---- ----
+        // VSO. ....
+        // |||| ||||
+        // |||+-++++- PPU open bus. Returns stale PPU bus contents.
+        // ||+------- Sprite overflow. The intent was for this flag to be set
+        // ||         whenever more than eight sprites appear on a scanline, but a
+        // ||         hardware bug causes the actual behavior to be more complicated
+        // ||         and generate false positives as well as false negatives; see
+        // ||         PPU sprite evaluation. This flag is set during sprite
+        // ||         evaluation and cleared at dot 1 (the second dot) of the
+        // ||         pre-render line.
+        // |+-------- Sprite 0 Hit.  Set when a nonzero pixel of sprite 0 overlaps
+        // |          a nonzero background pixel; cleared at dot 1 of the pre-render
+        // |          line.  Used for raster timing.
+        // +--------- Vertical blank has started (0: not in vblank; 1: in vblank).
+        //         Set at dot 1 of line 241 (the line *after* the post-render
+        //         line); cleared after reading $2002 and at dot 1 of the
+        //         pre-render line.
+        0x0
     }
 }
