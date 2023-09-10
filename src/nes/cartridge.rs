@@ -52,7 +52,7 @@ impl Cartridge {
             return Err("Can't parse NES 2.0 roms yet".to_string());
         }
 
-        let trainer_size = if has_trainer { 0 } else { TRAINER_SIZE };
+        let trainer_size = if has_trainer { TRAINER_SIZE } else { 0 };
         let prg_rom_size = raw[4] as usize * PRG_ROM_BLOCK_SIZE;
         let chr_rom_size = raw[5] as usize * CHR_ROM_BLOCK_SIZE;
 

@@ -100,4 +100,11 @@ impl ControlRegister {
         let scroll_x = if arg & 0b1 != 0 { 256 } else { 0 };
         let scroll_y = if arg & 0b10 != 0 { 240 } else { 0 };
     }
+
+    pub fn get_vram_increment(&self) -> u8 {
+        match self.vram_increment {
+            VramIncrement::Add1 => 1,
+            VramIncrement::Add32 => 32,
+        }
+    }
 }
