@@ -34,7 +34,7 @@ impl Trace {
             AddressingMode::ZeroPage => {
                 let immediate: u8 = cpu.bus.read_u8(cpu.regs.pc);
                 if print_operand {
-                    let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
+                    let (addr, _) = cpu.resolve_adressing(instr.mode);
                     let op = cpu.bus.read_u8(addr);
                     print!("${: <27}", format!("{:02X} = {:02X}", immediate, op));
                 } else {
@@ -44,7 +44,7 @@ impl Trace {
             AddressingMode::ZeroPageX => {
                 let immediate = cpu.bus.read_u8(cpu.regs.pc);
                 if print_operand {
-                    let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
+                    let (addr, _) = cpu.resolve_adressing(instr.mode);
                     let op = cpu.bus.read_u8(addr);
                     print!(
                         "${: <27}",
@@ -57,7 +57,7 @@ impl Trace {
             AddressingMode::ZeroPageY => {
                 let immediate = cpu.bus.read_u8(cpu.regs.pc);
                 if print_operand {
-                    let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
+                    let (addr, _) = cpu.resolve_adressing(instr.mode);
                     let op = cpu.bus.read_u8(addr);
                     print!(
                         "${: <27}",
@@ -78,7 +78,7 @@ impl Trace {
             }
             AddressingMode::AbsoluteX => {
                 let addr = cpu.bus.read_u16(cpu.regs.pc);
-                let final_addr = cpu.resolve_adressing(instr.mode, instr.cycles);
+                let (final_addr, _) = cpu.resolve_adressing(instr.mode);
                 let op = cpu.bus.read_u8(final_addr);
                 print!(
                     "${: <27}",
@@ -87,7 +87,7 @@ impl Trace {
             }
             AddressingMode::AbsoluteY => {
                 let addr = cpu.bus.read_u16(cpu.regs.pc);
-                let final_addr = cpu.resolve_adressing(instr.mode, instr.cycles);
+                let (final_addr, _) = cpu.resolve_adressing(instr.mode);
                 let op = cpu.bus.read_u8(final_addr);
                 print!(
                     "${: <27}",
@@ -96,7 +96,7 @@ impl Trace {
             }
             AddressingMode::IndirectX => {
                 let immediate = cpu.bus.read_u8(cpu.regs.pc);
-                let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
+                let (addr, _) = cpu.resolve_adressing(instr.mode);
                 let op = cpu.bus.read_u8(addr);
                 print!(
                     "(${: <26}",
@@ -111,7 +111,7 @@ impl Trace {
             }
             AddressingMode::IndirectY => {
                 let immediate = cpu.bus.read_u8(cpu.regs.pc);
-                let addr = cpu.resolve_adressing(instr.mode, instr.cycles);
+                let (addr, _) = cpu.resolve_adressing(instr.mode);
                 let op = cpu.bus.read_u8(addr);
                 print!(
                     "(${: <26}",
@@ -191,15 +191,15 @@ impl fmt::Display for Cpu {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X}", // PPU:  {}, {} CYC:{}",
+            "A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} PPU:{: >3},{: >3} CYC:{}",
             self.regs.acc,
             self.regs.idx_x,
             self.regs.idx_y,
             self.regs.status.bits(),
             self.regs.sp,
-            // 0x00,
-            // 0x00,
-            // self.cycles
+            self.bus.get_ppu_tick().0,
+            self.bus.get_ppu_tick().1,
+            self.cycles
         )
     }
 }

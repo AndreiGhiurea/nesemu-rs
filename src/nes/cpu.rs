@@ -26,7 +26,7 @@ impl Cpu {
         Cpu {
             regs,
             bus,
-            cycles: 0,
+            cycles: 7,
         }
     }
 
@@ -78,33 +78,46 @@ impl Cpu {
         self.bus.read_u8(addr)
     }
 
-    fn resolve_adressing(&self, mode: AddressingMode, _cycles: u8) -> Addr {
+    pub fn is_page_cross(addr1: Addr, addr2: Addr) -> bool {
+        addr1 & 0xFF00 != addr2 & 0xFF00
+    }
+
+    pub fn tick(&mut self, tick: u8) {
+        self.cycles += tick as usize;
+        self.bus.ppu_tick(tick * 3);
+    }
+
+    fn resolve_adressing(&mut self, mode: AddressingMode) -> (Addr, bool) {
         match mode {
-            AddressingMode::Implied => 0xFFFF,
-            AddressingMode::Relative => self.regs.pc,
-            AddressingMode::Immediate => self.regs.pc,
+            AddressingMode::Implied => (0xFFFF, false),
+            AddressingMode::Relative => (self.regs.pc, false),
+            AddressingMode::Immediate => (self.regs.pc, false),
             AddressingMode::ZeroPage => {
                 let op = self.bus.read_u8(self.regs.pc);
-                Addr::from_le_bytes([op, 0x00])
+                (Addr::from_le_bytes([op, 0x00]), false)
             }
             AddressingMode::ZeroPageX => {
                 let mut op = self.bus.read_u8(self.regs.pc);
                 op = op.wrapping_add(self.regs.idx_x);
-                Addr::from_le_bytes([op, 0x00])
+                (Addr::from_le_bytes([op, 0x00]), false)
             }
             AddressingMode::ZeroPageY => {
                 let mut op = self.bus.read_u8(self.regs.pc);
                 op = op.wrapping_add(self.regs.idx_y);
-                Addr::from_le_bytes([op, 0x00])
+                (Addr::from_le_bytes([op, 0x00]), false)
             }
-            AddressingMode::Absolute => self.bus.read_u16(self.regs.pc),
+            AddressingMode::Absolute => (self.bus.read_u16(self.regs.pc), false),
             AddressingMode::AbsoluteX => {
                 let addr = self.bus.read_u16(self.regs.pc);
-                addr.wrapping_add(self.regs.idx_x as u16)
+                let final_addr = addr.wrapping_add(self.regs.idx_x as u16);
+
+                (final_addr, Cpu::is_page_cross(addr, final_addr))
             }
             AddressingMode::AbsoluteY => {
                 let addr = self.bus.read_u16(self.regs.pc);
-                addr.wrapping_add(self.regs.idx_y as u16)
+                let final_addr = addr.wrapping_add(self.regs.idx_y as u16);
+
+                (final_addr, Cpu::is_page_cross(addr, final_addr))
             }
             AddressingMode::IndirectX => {
                 let op = self.bus.read_u8(self.regs.pc);
@@ -115,7 +128,7 @@ impl Cpu {
                     .bus
                     .read_u8((op as Addr + self.regs.idx_x as Addr + 0x1) & 0x00FF);
 
-                Addr::from_le_bytes([lb, hb])
+                (Addr::from_le_bytes([lb, hb]), false)
             }
             AddressingMode::IndirectY => {
                 let op = self.bus.read_u8(self.regs.pc);
@@ -123,7 +136,9 @@ impl Cpu {
                 let hb = self.bus.read_u8((op as Addr + 0x1) & 0x00FF);
 
                 let addr = Addr::from_le_bytes([lb, hb]);
-                addr.wrapping_add(self.regs.idx_y as u16)
+                let final_addr = addr.wrapping_add(self.regs.idx_y as u16);
+
+                (final_addr, Cpu::is_page_cross(addr, final_addr))
             }
             AddressingMode::Indirect => {
                 let indirect_addr = self.bus.read_u16(self.regs.pc);
@@ -144,7 +159,7 @@ impl Cpu {
                     (lb, hb) = self.bus.read_u16(indirect_addr).to_le_bytes().into();
                 }
 
-                Addr::from_le_bytes([lb, hb])
+                (Addr::from_le_bytes([lb, hb]), false)
             }
             _ => {
                 panic!("Cannot resolve addresing for mode {:?}", mode);
@@ -159,7 +174,7 @@ impl Cpu {
 
         (instruction.emu_fn)(self, instruction);
 
-        self.cycles += instruction.cycles as usize;
+        self.tick(instruction.cycles);
 
         match instruction.variant {
             // These instructions modify the PC directly, no need to add the length.
