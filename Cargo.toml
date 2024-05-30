@@ -9,3 +9,4 @@ edition = "2021"
 bitflags = "2.3.3"
 nom = "7.1.3"
 phf = { version = "0.11.2", features = ["macros"] }
+sdl2 = "0.36"

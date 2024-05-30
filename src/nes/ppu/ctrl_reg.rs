@@ -107,4 +107,8 @@ impl ControlRegister {
             VramIncrement::Add32 => 32,
         }
     }
+
+    pub fn get_generate_nmi(&self) -> bool {
+        self.generate_nmi
+    }
 }

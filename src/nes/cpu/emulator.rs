@@ -108,14 +108,18 @@ impl Emu {
         Emu::branch(cpu, cpu.regs.status.contains(ProcessorStatus::ZERO_FLAG));
     }
 
-    pub fn brk(cpu: &mut Cpu, instr: &Instruction) {
+    pub fn brk(cpu: &mut Cpu, _instr: &Instruction) {
         let mut flags = cpu.regs.status;
 
         // This instructions pushes bit B flags as 1.
         flags.set(ProcessorStatus::BREAK_CMD, true);
         flags.set(ProcessorStatus::BREAK_CMD2, true);
 
-        panic!("Instruction not implemented {:?}", instr.variant);
+        cpu.stack_push_u16(cpu.regs.pc + 1);
+        cpu.stack_push_u8(flags.bits());
+
+        let new_pc = cpu.bus.read_u16(0xFFFE);
+        cpu.set_pc(new_pc);
     }
 
     pub fn bne(cpu: &mut Cpu, _instr: &Instruction) {

@@ -84,7 +84,7 @@ pub static INSTRUCTIONS: phf::Map<u8, Instruction> = phf_map! {
     0xF0u8 => Instruction{variant: InstructionVariant::BEQ, mode: AddressingMode::Relative, length: 2, cycles: 2, emu_fn: Emu::beq},
 
     // Break instruction
-    0x00u8 => Instruction{variant: InstructionVariant::BRK, mode: AddressingMode::Implied, length: 1, cycles: 7, emu_fn: Emu::brk},
+    0x00u8 => Instruction{variant: InstructionVariant::BRK, mode: AddressingMode::Implied, length: 2, cycles: 7, emu_fn: Emu::brk},
 
     // CMP instruction
     0xC9u8 => Instruction{variant: InstructionVariant::CMP, mode: AddressingMode::Immediate, length: 2, cycles: 2, emu_fn: Emu::cmp},

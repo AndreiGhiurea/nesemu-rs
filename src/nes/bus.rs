@@ -22,6 +22,8 @@ impl Bus {
     }
 
     fn init(&mut self) {
+        println!("{}", self.rom.mapper);
+
         let mut load_addr: usize = 0x8000;
         for byte in self.rom.prg_rom.clone() {
             self.write_u8(load_addr as u16, byte);
@@ -30,8 +32,6 @@ impl Bus {
         }
 
         self.ppu.load_chr(&self.rom.chr_rom);
-
-        // println!("{}", self.rom.mapper);
     }
 
     pub fn ppu_tick(&mut self, tick: u8) {
@@ -47,11 +47,11 @@ impl Bus {
             0 => panic!("Read on PPUCTRL is invalid"),
             1 => panic!("Read on PPUMASK is invalid"),
             2 => self.ppu.status(),
-            4 => panic!("Read on OAMADDR is invalid"),
-            5 => self.ppu.oam_data_read(),
-            6 => panic!("Read on PPUSCROLL is invalid"),
-            7 => panic!("Read on PPUADDR is invalid"),
-            8 => self.ppu.data_read(),
+            3 => panic!("Read on OAMADDR is invalid"),
+            4 => self.ppu.oam_data_read(),
+            5 => panic!("Read on PPUSCROLL is invalid"),
+            6 => panic!("Read on PPUADDR is invalid"),
+            7 => self.ppu.data_read(),
             _ => panic!("This should be impossible"),
         }
     }
@@ -61,11 +61,11 @@ impl Bus {
             0 => self.ppu.ctrl(value),
             1 => self.ppu.mask(value),
             2 => panic!("Write on PPUSTATUS is invalid"),
-            4 => self.ppu.oam_addr(value),
-            5 => self.ppu.oam_data_write(value),
-            6 => self.ppu.scroll(),
-            7 => self.ppu.addr(value),
-            8 => self.ppu.data_write(value),
+            3 => self.ppu.oam_addr(value),
+            4 => self.ppu.oam_data_write(value),
+            5 => self.ppu.scroll(),
+            6 => self.ppu.addr(value),
+            7 => self.ppu.data_write(value),
             _ => panic!("This should be impossible"),
         }
     }
@@ -91,8 +91,8 @@ impl Bus {
             // Handle OAM DMA
             0x4014 => panic!("Read on OMA DMA is invalid"),
             // Handle APU
-            0x4000..=0x4017 => todo!("Implement APU"),
-            0x4018..=0x401F => todo!("APU and I/O functionallity"),
+            0x4000..=0x4017 => address, // todo!("Implement APU Read"),
+            0x4018..=0x401F => address, // todo!("Read APU and I/O functionallity"),
             // Cartridge space, leave this as is.
             _ => address,
         };
@@ -113,12 +113,16 @@ impl Bus {
             // Handle OAM DMA
             0x4014 => return self.handle_oam_dma(value),
             // Handle APU
-            0x4000..=0x4017 => todo!("Implement APU"),
-            0x4018..=0x401F => todo!("APU and I/O functionallity"),
+            0x4000..=0x4017 => address, // todo!("Implement APU Write"),
+            0x4018..=0x401F => address, // todo!("Write APU and I/O functionallity"),
             // Cartridge space, leave this as is.
             _ => address,
         };
 
         self.mem[address as usize] = value;
+    }
+    
+    pub fn poll_nmi_status(&mut self) -> bool {
+        self.ppu.get_nmi_occured()
     }
 }

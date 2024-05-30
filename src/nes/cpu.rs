@@ -3,6 +3,8 @@ mod instructions;
 mod registers;
 mod trace;
 
+use self::registers::ProcessorStatus;
+
 use super::Bus;
 use instructions::{AddressingMode, Instruction, InstructionVariant, INSTRUCTIONS};
 use registers::Registers;
@@ -34,13 +36,60 @@ impl Cpu {
         let opcode = self.bus.read_u8(self.regs.pc);
         let instruction = Cpu::decode(opcode);
 
-        Trace::print_state(self, instruction);
+        // Trace::print_state(self, instruction);
 
         self.emulate(instruction);
+
+        if self.bus.poll_nmi_status() {
+            self.interrupt_nmi();
+        }
+    }
+
+    pub fn reset(&mut self) {
+        self.regs.sp -= 0x3;
+        self.regs.status.set(ProcessorStatus::INTERRUPT_DISABLE, true);
+
+        // Silence APU ($4015 = 0)
+        // APU triangle phase is reset to 0 (i.e outputs a value of 15, the first setp of its waveform)
+        // APU DPCM output ANDed with 1 (upper 6 bits cleared)
+        // APU Frame Counter:
+        //      2A03E, G, various clones: APU Frame Counter reset.
+        //      2A03letterless: APU frame counter retains old value 
+    }
+
+    pub fn power_up(&mut self) {
+        // self.regs.status = ProcessorStatus::empty();
+        // self.regs.status.set(ProcessorStatus::INTERRUPT_DISABLE, true);
+        self.regs.acc = 0;
+        self.regs.idx_x = 0;
+        self.regs.idx_y = 0;
+        self.regs.sp = 0xFD;
+        // Frame IRQ Enabled
+        self.bus.write_u8(0x4017, 0x00);
+        // All Channel disabled
+        self.bus.write_u8(0x4015, 0x00);
+        // $4000 - $400F = $00
+        // $4010 - $4013 = $00
+        self.regs.pc = self.bus.read_u16(0xFFFC);
+        // self.regs.pc=0xC000;
     }
 
     pub fn set_pc(&mut self, value: Addr) {
         self.regs.pc = value;
+    }
+
+    pub fn interrupt_nmi(&mut self) {
+        self.stack_push_u16(self.regs.pc);
+
+        let mut flags = self.regs.status;
+        flags.set(ProcessorStatus::BREAK_CMD, false);
+        flags.set(ProcessorStatus::BREAK_CMD2, true);
+        self.stack_push_u8(flags.bits());
+        
+        self.regs.status.set(ProcessorStatus::INTERRUPT_DISABLE, true);
+
+        self.tick(2);
+        self.regs.pc = self.bus.read_u16(0xFFFA);
     }
 
     fn decode(opcode: u8) -> &'static Instruction {

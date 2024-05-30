@@ -2,6 +2,7 @@ mod bus;
 mod cartridge;
 mod cpu;
 mod ppu;
+mod renderer;
 
 use bus::Bus;
 use cartridge::Cartridge;
@@ -23,7 +24,7 @@ impl Nes {
     }
 
     pub fn run(&mut self) {
-        self.cpu.set_pc(0xC000);
+        self.cpu.power_up();
 
         loop {
             self.cpu.execute();
