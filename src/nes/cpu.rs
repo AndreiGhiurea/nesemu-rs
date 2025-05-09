@@ -8,7 +8,6 @@ use self::registers::ProcessorStatus;
 use super::Bus;
 use instructions::{AddressingMode, Instruction, InstructionVariant, INSTRUCTIONS};
 use registers::Registers;
-use trace::Trace;
 
 pub type Addr = u16;
 
@@ -47,14 +46,16 @@ impl Cpu {
 
     pub fn reset(&mut self) {
         self.regs.sp -= 0x3;
-        self.regs.status.set(ProcessorStatus::INTERRUPT_DISABLE, true);
+        self.regs
+            .status
+            .set(ProcessorStatus::INTERRUPT_DISABLE, true);
 
         // Silence APU ($4015 = 0)
         // APU triangle phase is reset to 0 (i.e outputs a value of 15, the first setp of its waveform)
         // APU DPCM output ANDed with 1 (upper 6 bits cleared)
         // APU Frame Counter:
         //      2A03E, G, various clones: APU Frame Counter reset.
-        //      2A03letterless: APU frame counter retains old value 
+        //      2A03letterless: APU frame counter retains old value
     }
 
     pub fn power_up(&mut self) {
@@ -85,8 +86,10 @@ impl Cpu {
         flags.set(ProcessorStatus::BREAK_CMD, false);
         flags.set(ProcessorStatus::BREAK_CMD2, true);
         self.stack_push_u8(flags.bits());
-        
-        self.regs.status.set(ProcessorStatus::INTERRUPT_DISABLE, true);
+
+        self.regs
+            .status
+            .set(ProcessorStatus::INTERRUPT_DISABLE, true);
 
         self.tick(2);
         self.regs.pc = self.bus.read_u16(0xFFFA);

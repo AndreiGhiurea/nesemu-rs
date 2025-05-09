@@ -18,11 +18,10 @@ pub struct StatusRegister {
     //            Set at dot 1 of line 241 (the line *after* the post-render
     //            line); cleared after reading $2002 and at dot 1 of the
     //            pre-render line.
-    status: u8
+    status: u8,
 }
 
 impl Default for StatusRegister {
-
     fn default() -> Self {
         StatusRegister { status: 0 }
     }
