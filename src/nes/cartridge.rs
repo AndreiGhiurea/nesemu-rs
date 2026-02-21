@@ -15,7 +15,7 @@ pub struct Cartridge {
     pub mapper: u8,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub enum Mirroring {
     #[default]
     Horizontal,
@@ -46,7 +46,7 @@ impl Cartridge {
         let has_trainer = raw[6] & 0b100 != 0;
         let has_four_screen = raw[6] & 0b1000 != 0;
 
-        let mapper = (raw[7] & 0xF0) | (raw[6] & 0xF0 >> 4);
+        let mapper = (raw[7] & 0xF0) | ((raw[6] & 0xF0) >> 4);
 
         if raw[7] & 0b1100 == 0b1100 {
             return Err("Can't parse NES 2.0 roms yet".to_string());

@@ -7,6 +7,5 @@ edition = "2021"
 
 [dependencies]
 bitflags = "2.9.0"
-nom = "8.0.0"
 phf = { version = "0.11.3", features = ["macros"] }
 sdl2 = "0.37.0"

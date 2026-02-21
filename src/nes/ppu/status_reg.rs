@@ -33,7 +33,11 @@ impl StatusRegister {
     }
 
     pub fn set_vblank(&mut self, value: bool) {
-        self.status |= 0x80;
+        if value {
+            self.status |= 0x80;
+        } else {
+            self.status &= !0x80;
+        }
     }
 
     pub fn get_vblank(&self) -> bool {
@@ -41,7 +45,11 @@ impl StatusRegister {
     }
 
     pub fn set_sprite0_hit(&mut self, value: bool) {
-        self.status |= 0x40;
+        if value {
+            self.status |= 0x40;
+        } else {
+            self.status &= !0x40;
+        }
     }
 
     pub fn get_sprite0_hit(&self) -> bool {
@@ -49,7 +57,11 @@ impl StatusRegister {
     }
 
     pub fn set_sprite_overflow(&mut self, value: bool) {
-        self.status |= 0x20;
+        if value {
+            self.status |= 0x20;
+        } else {
+            self.status &= !0x20;
+        }
     }
 
     pub fn get_sprite_overflow(&self) -> bool {

@@ -137,6 +137,18 @@ impl Cpu {
     pub fn tick(&mut self, tick: u8) {
         self.cycles += tick as usize;
         self.bus.ppu_tick(tick * 3);
+        // Tick APU once per CPU cycle
+        for _ in 0..tick {
+            self.bus.apu_tick();
+        }
+    }
+
+    pub fn take_frame(&mut self) -> Option<super::renderer::frame::Frame> {
+        self.bus.take_frame()
+    }
+
+    pub fn set_joypad_button(&mut self, button: super::joypad::JoypadButton, pressed: bool) {
+        self.bus.joypad1_mut().set_button_pressed(button, pressed);
     }
 
     fn resolve_adressing(&mut self, mode: AddressingMode) -> (Addr, bool) {

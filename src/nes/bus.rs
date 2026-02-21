@@ -1,20 +1,24 @@
-const MEMORY_SIZE: usize = 0x10000;
 use core::panic;
+use std::sync::{Arc, Mutex};
 
-use super::{cartridge::Cartridge, cpu::Addr, ppu::Ppu};
+use super::{apu::Apu, cartridge::Cartridge, cpu::Addr, joypad::Joypad, ppu::Ppu};
 
 pub struct Bus {
-    mem: [u8; MEMORY_SIZE],
+    mem: [u8; 0x800],  // 2 KB internal RAM
     rom: Cartridge,
     ppu: Ppu,
+    apu: Apu,
+    joypad1: Joypad,
 }
 
 impl Bus {
-    pub fn new(rom: Cartridge, ppu: Ppu) -> Bus {
+    pub fn new(rom: Cartridge, ppu: Ppu, audio_buffer: Arc<Mutex<Vec<f32>>>) -> Bus {
         let mut bus = Bus {
-            mem: [0x0; MEMORY_SIZE],
+            mem: [0x0; 0x800],
             rom,
             ppu,
+            apu: Apu::new(audio_buffer),
+            joypad1: Joypad::new(),
         };
 
         bus.init();
@@ -22,15 +26,7 @@ impl Bus {
     }
 
     fn init(&mut self) {
-        println!("{}", self.rom.mapper);
-
-        let mut load_addr: usize = 0x8000;
-        for byte in self.rom.prg_rom.clone() {
-            self.write_u8(load_addr as u16, byte);
-            self.write_u8(load_addr as u16 + 0x4000, byte);
-            load_addr += 0x1;
-        }
-
+        println!("Mapper: {}", self.rom.mapper);
         self.ppu.load_chr(&self.rom.chr_rom);
     }
 
@@ -38,8 +34,25 @@ impl Bus {
         self.ppu.tick(tick);
     }
 
+    /// Tick the APU once per CPU cycle.
+    pub fn apu_tick(&mut self) {
+        if let Some(dmc_addr) = self.apu.tick() {
+            // DMC needs to read a byte from memory
+            let value = self.read_u8(dmc_addr);
+            self.apu.dmc_fill_buffer(value);
+        }
+    }
+
     pub fn get_ppu_tick(&self) -> (usize, usize) {
         (self.ppu.get_scanlines(), self.ppu.get_cycles())
+    }
+
+    pub fn take_frame(&mut self) -> Option<super::renderer::frame::Frame> {
+        self.ppu.take_frame()
+    }
+
+    pub fn joypad1_mut(&mut self) -> &mut Joypad {
+        &mut self.joypad1
     }
 
     fn handle_ppu_read(&mut self, idx: u8) -> u8 {
@@ -63,7 +76,7 @@ impl Bus {
             2 => panic!("Write on PPUSTATUS is invalid"),
             3 => self.ppu.oam_addr(value),
             4 => self.ppu.oam_data_write(value),
-            5 => self.ppu.scroll(),
+            5 => self.ppu.scroll(value),
             6 => self.ppu.addr(value),
             7 => self.ppu.data_write(value),
             _ => panic!("This should be impossible"),
@@ -74,7 +87,9 @@ impl Bus {
         let addr = Addr::from_le_bytes([0x00, value]) as usize;
 
         let mut data: [u8; 256] = [0; 256];
-        data.copy_from_slice(&self.mem[addr..=(addr + 0xFF)]);
+        for i in 0..256 {
+            data[i] = self.read_u8((addr + i) as u16);
+        }
         self.ppu.oam_dma(&data);
     }
 
@@ -83,46 +98,63 @@ impl Bus {
     }
 
     pub fn read_u8(&mut self, address: Addr) -> u8 {
-        let address = match address {
-            // Handle internal RAM mirroring
-            0x0000..=0x1FFF => address % 0x800,
-            // Handle PPU mappped I/O
-            0x2000..=0x3FFF => return self.handle_ppu_read(address as u8 % 8),
-            // Handle OAM DMA
-            0x4014 => panic!("Read on OMA DMA is invalid"),
-            // Handle APU
-            0x4000..=0x4017 => address, // todo!("Implement APU Read"),
-            0x4018..=0x401F => address, // todo!("Read APU and I/O functionallity"),
-            // Cartridge space, leave this as is.
-            _ => address,
-        };
-
-        self.mem[address as usize]
+        match address {
+            // Internal RAM (mirrored every 0x800 bytes)
+            0x0000..=0x1FFF => self.mem[(address & 0x07FF) as usize],
+            // PPU mapped I/O (mirrored every 8 bytes)
+            0x2000..=0x3FFF => self.handle_ppu_read((address & 0x07) as u8),
+            // OAM DMA
+            0x4014 => panic!("Read on OAM DMA is invalid"),
+            // APU Status
+            0x4015 => self.apu.read_status(),
+            // Joypad 1
+            0x4016 => self.joypad1.read(),
+            // Joypad 2 (not implemented yet)
+            0x4017 => 0,
+            // APU and I/O
+            0x4000..=0x4013 => 0, // APU registers are write-only (except $4015)
+            0x4018..=0x401F => 0, // Test mode
+            // Cartridge space: PRG ROM
+            0x8000..=0xFFFF => self.read_prg_rom(address),
+            _ => 0,
+        }
     }
 
     pub fn read_i8(&mut self, address: Addr) -> i8 {
         self.read_u8(address) as i8
     }
 
-    pub fn write_u8(&mut self, address: Addr, value: u8) {
-        let address = match address {
-            // Handle internal RAM mirroring
-            0x0000..=0x1FFF => address % 0x800,
-            // Handle PPU mappped I/O
-            0x2000..=0x3FFF => return self.handle_ppu_write(address as u8 % 8, value),
-            // Handle OAM DMA
-            0x4014 => return self.handle_oam_dma(value),
-            // Handle APU
-            0x4000..=0x4017 => address, // todo!("Implement APU Write"),
-            0x4018..=0x401F => address, // todo!("Write APU and I/O functionallity"),
-            // Cartridge space, leave this as is.
-            _ => address,
-        };
+    fn read_prg_rom(&self, address: Addr) -> u8 {
+        let offset = (address - 0x8000) as usize;
+        let prg_len = self.rom.prg_rom.len();
+        
+        if prg_len == 0 {
+            return 0;
+        }
 
-        self.mem[address as usize] = value;
+        self.rom.prg_rom[offset % prg_len]
+    }
+
+    pub fn write_u8(&mut self, address: Addr, value: u8) {
+        match address {
+            // Internal RAM (mirrored every 0x800 bytes)
+            0x0000..=0x1FFF => self.mem[(address & 0x07FF) as usize] = value,
+            // PPU mapped I/O
+            0x2000..=0x3FFF => self.handle_ppu_write((address & 0x07) as u8, value),
+            // OAM DMA
+            0x4014 => self.handle_oam_dma(value),
+            // Joypad 1 strobe
+            0x4016 => self.joypad1.write(value),
+            // APU registers ($4000-$4013, $4015, $4017)
+            0x4000..=0x4013 | 0x4015 | 0x4017 => self.apu.write_register(address, value),
+            // Remaining I/O
+            0x4018..=0x401F => {} // Test mode
+            // Cartridge space
+            _ => {}
+        }
     }
     
     pub fn poll_nmi_status(&mut self) -> bool {
-        self.ppu.get_nmi_occured()
+        self.ppu.get_nmi_occurred()
     }
 }

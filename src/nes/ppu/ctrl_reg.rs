@@ -111,4 +111,16 @@ impl ControlRegister {
     pub fn get_generate_nmi(&self) -> bool {
         self.generate_nmi
     }
+
+    pub fn get_nametable_addr(&self) -> u16 {
+        self.nametable_addr
+    }
+
+    pub fn get_sprite_pattern_addr(&self) -> u16 {
+        self.sprite_pattern_addr
+    }
+
+    pub fn get_background_pattern_addr(&self) -> u16 {
+        self.backgroung_pattern_addr
+    }
 }

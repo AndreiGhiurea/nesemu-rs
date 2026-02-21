@@ -2,7 +2,7 @@ mod nes;
 use nes::Nes;
 
 fn main() {
-    let rom_path = "testroms/nestest.nes";
+    let rom_path = "testroms/donkey_kong.nes";
 
     let mut nes = match Nes::new(rom_path) {
         Ok(nes) => nes,

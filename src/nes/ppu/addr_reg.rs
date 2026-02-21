@@ -36,6 +36,10 @@ impl AddressRegister {
         }
     }
 
+    pub fn reset_latch(&mut self) {
+        self.state = AddressState::WaitingForUpperByte;
+    }
+
     pub fn get(&self) -> Addr {
         Addr::from_le_bytes([self.lower, self.upper])
     }
